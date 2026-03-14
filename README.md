@@ -24,6 +24,30 @@ npm install creem-datafast creem
 
 ## How It Works
 
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Your Server
+    participant C as CREEM
+    participant D as DataFast
+
+    Note over B: User visits site<br/>DataFast script sets<br/>datafast_visitor_id cookie
+
+    B->>S: POST /api/checkout<br/>(visitorId from cookie)
+    S->>S: createCheckoutWithVisitorId()<br/>injects visitor ID into metadata
+    S->>C: createCheckout(productId, metadata)
+    C-->>S: returns checkoutUrl
+    S-->>B: checkoutUrl
+
+    B->>C: User completes payment
+
+    C->>S: POST /webhooks/creem<br/>(checkout.completed)
+    S->>S: Verify creem-signature (HMAC)
+    S->>S: Extract visitor ID from metadata
+    S->>S: Map amount, currency, transaction_id
+    S->>D: POST /api/v1/payments<br/>(amount, currency, transaction_id, datafast_visitor_id)
+    D-->>S: 200 OK
+    S-->>C: 200 OK
 ```
 Browser                        Your Server                    External
 ───────                        ───────────                    ────────
