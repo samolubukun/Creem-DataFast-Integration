@@ -1,19 +1,14 @@
-// Client (checkout wrapper)
 export { CreemDataFastClient, createCreemDataFastClient } from './client/create-checkout.js';
 
-// Client-side cookie helpers (browser)
 export {
   getDataFastVisitorId as getDataFastVisitorIdBrowser,
+  getDataFastSessionId,
   hasDataFastVisitorId,
   buildCheckoutUrlWithVisitorId,
-  addVisitorIdToMetadata,
+  addTrackingToMetadata,
   DataFastClient,
-  // Guide-compatible aliases
-  getDataFastVisitorId as readDataFastVisitorIdFromBrowser,
-  buildCheckoutUrlWithVisitorId as appendVisitorIdToCheckoutUrl,
 } from './client/index.js';
 
-// Server (webhook handlers)
 export {
   WebhookHandler,
   createWebhookHandler,
@@ -23,10 +18,8 @@ export {
   handleGenericWebhook,
 } from './server/index.js';
 
-// Types
 export * from './types/index.js';
 
-// Utilities
 export {
   mapCreemEventToDataFast,
   mapToDataFastPaymentRequest,
@@ -35,7 +28,18 @@ export {
 export {
   getDataFastVisitorId,
   parseCookieHeader,
-  // Guide-compatible aliases
-  getDataFastVisitorId as readDataFastVisitorId,
-  parseCookieHeader as parseCookies,
 } from './utils/cookie.js';
+
+export {
+  MemoryIdempotencyStore,
+  createMemoryIdempotencyStore,
+} from './utils/idempotency.js';
+
+export { createUpstashIdempotencyStore } from './utils/idempotency-upstash.js';
+
+export {
+  CreemDataFastError,
+  InvalidCreemSignatureError,
+  MissingTrackingError,
+  DataFastRequestError,
+} from './errors.js';

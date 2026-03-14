@@ -2,21 +2,21 @@ import type {
   CreemWebhookRaw,
   CreemCheckoutCompletedEvent,
   CreemSubscriptionPaidEvent,
+  CreemRefundCreatedEvent,
   CreemWebhookProduct,
   CreemWebhookCustomer,
 } from '../types/creem.js';
 import type { DataFastPaymentRequest } from '../types/datafast.js';
 
-// ---------------------------------------------------------------------------
-// Intermediate mapped type
-// ---------------------------------------------------------------------------
+const ZERO_DECIMAL_CURRENCIES = new Set(['JPY', 'KRW', 'VND', 'IDR', 'CLP', 'ISK']);
+const THREE_DECIMAL_CURRENCIES = new Set(['KWD', 'BHD', 'OMR', 'TND', 'JOD', 'IQD']);
 
 export interface MappedPaymentData {
   transactionId: string;
   currency: string;
-  /** Decimal amount (e.g. 29.99), NOT cents. */
   amount: number;
   visitorId: string | null;
+  sessionId?: string;
   customerId?: string;
   customerEmail?: string;
   customerName?: string;
@@ -25,14 +25,6 @@ export interface MappedPaymentData {
   timestamp: string;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Accepts a raw CREEM webhook body (already parsed from JSON) and returns
- * a `MappedPaymentData` if the event is one we handle, or `null` otherwise.
- */
 export function mapCreemEventToDataFast(
   raw: CreemWebhookRaw
 ): MappedPaymentData | null {
@@ -41,14 +33,12 @@ export function mapCreemEventToDataFast(
       return mapCheckoutCompleted(raw as unknown as CreemCheckoutCompletedEvent);
     case 'subscription.paid':
       return mapSubscriptionPaid(raw as unknown as CreemSubscriptionPaidEvent);
+    case 'refund.created':
+      return mapRefundCreated(raw as unknown as CreemRefundCreatedEvent);
     default:
       return null;
   }
 }
-
-// ---------------------------------------------------------------------------
-// checkout.completed
-// ---------------------------------------------------------------------------
 
 function mapCheckoutCompleted(
   event: CreemCheckoutCompletedEvent
@@ -61,19 +51,17 @@ function mapCheckoutCompleted(
   const customer = obj.customer;
   const metadata = obj.metadata;
 
-  // Use the order amount/currency (these are the actual charged values).
-  // Fall back to the product price if order is missing.
   const amountCents = order?.amount ?? product?.price ?? 0;
   const currency = order?.currency ?? product?.currency ?? 'USD';
 
-  // Transaction ID: prefer order ID, fall back to checkout ID.
   const transactionId = order?.id ?? obj.id;
 
   return {
     transactionId,
     currency,
-    amount: centsToDecimal(amountCents),
+    amount: centsToDecimal(amountCents, currency),
     visitorId: extractVisitorId(metadata),
+    sessionId: extractSessionId(metadata),
     customerId: customer?.id,
     customerEmail: customer?.email,
     customerName: customer?.name,
@@ -82,10 +70,6 @@ function mapCheckoutCompleted(
     timestamp: order?.created_at ?? new Date(event.created_at).toISOString(),
   };
 }
-
-// ---------------------------------------------------------------------------
-// subscription.paid
-// ---------------------------------------------------------------------------
 
 function mapSubscriptionPaid(
   event: CreemSubscriptionPaidEvent
@@ -100,15 +84,14 @@ function mapSubscriptionPaid(
   const amountCents = product?.price ?? 0;
   const currency = product?.currency ?? 'USD';
 
-  // Prefer the last_transaction_id (the actual transaction for this billing
-  // cycle) over the subscription ID.
   const transactionId = obj.last_transaction_id ?? obj.id;
 
   return {
     transactionId,
     currency,
-    amount: centsToDecimal(amountCents),
+    amount: centsToDecimal(amountCents, currency),
     visitorId: extractVisitorId(metadata),
+    sessionId: extractSessionId(metadata),
     customerId: customer?.id,
     customerEmail: customer?.email,
     customerName: customer?.name,
@@ -121,19 +104,54 @@ function mapSubscriptionPaid(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function mapRefundCreated(
+  event: CreemRefundCreatedEvent
+): MappedPaymentData | null {
+  const obj = event.object;
+  if (!obj) return null;
 
-function extractVisitorId(
-  metadata?: Record<string, unknown>
-): string | null {
+  const order = obj.order;
+  const product = obj.product;
+  const customer = obj.customer;
+  const metadata = obj.metadata;
+
+  const amountCents = obj.amount ?? order?.amount ?? product?.price ?? 0;
+  const currency = order?.currency ?? product?.currency ?? 'USD';
+
+  return {
+    transactionId: obj.id,
+    currency,
+    amount: centsToDecimal(amountCents, currency),
+    visitorId: extractVisitorId(metadata),
+    sessionId: extractSessionId(metadata),
+    customerId: customer?.id,
+    customerEmail: customer?.email,
+    customerName: customer?.name,
+    isRenewal: false,
+    isRefunded: true,
+    timestamp: obj.created_at ?? new Date(event.created_at).toISOString(),
+  };
+}
+
+function extractVisitorId(metadata?: Record<string, unknown>): string | null {
   if (!metadata) return null;
   const id = metadata.datafast_visitor_id;
   return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
-function centsToDecimal(cents: number): number {
+function extractSessionId(metadata?: Record<string, unknown>): string | undefined {
+  if (!metadata) return undefined;
+  const id = metadata.datafast_session_id;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
+}
+
+function centsToDecimal(cents: number, currency: string): number {
+  if (ZERO_DECIMAL_CURRENCIES.has(currency.toUpperCase())) {
+    return cents;
+  }
+  if (THREE_DECIMAL_CURRENCIES.has(currency.toUpperCase())) {
+    return Math.round(cents) / 1000;
+  }
   return Math.round(cents) / 100;
 }
 
@@ -151,10 +169,6 @@ function resolveCustomer(
   return c;
 }
 
-// ---------------------------------------------------------------------------
-// DataFast request builder
-// ---------------------------------------------------------------------------
-
 export function mapToDataFastPaymentRequest(
   mapped: MappedPaymentData
 ): DataFastPaymentRequest {
@@ -169,5 +183,6 @@ export function mapToDataFastPaymentRequest(
     email: mapped.customerEmail,
     name: mapped.customerName,
     datafast_visitor_id: mapped.visitorId ?? undefined,
+    datafast_session_id: mapped.sessionId,
   };
 }

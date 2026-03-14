@@ -119,11 +119,36 @@ export interface CreemSubscriptionPaidEvent {
   object: CreemSubscriptionPaidObject;
 }
 
+// ---- refund.created ----
+
+export interface CreemRefundCreatedObject {
+  id: string;
+  object: 'refund';
+  order: CreemWebhookOrder;
+  product: CreemWebhookProduct;
+  customer: CreemWebhookCustomer;
+  amount: number;
+  status: string;
+  reason?: string;
+  created_at: string;
+  updated_at: string;
+  mode: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreemRefundCreatedEvent {
+  id: string;
+  eventType: 'refund.created';
+  created_at: number;
+  object: CreemRefundCreatedObject;
+}
+
 // ---- Union type for the events this package handles ----
 
 export type CreemWebhookEvent =
   | CreemCheckoutCompletedEvent
-  | CreemSubscriptionPaidEvent;
+  | CreemSubscriptionPaidEvent
+  | CreemRefundCreatedEvent;
 
 /** Raw webhook envelope before we know the eventType. */
 export interface CreemWebhookRaw {

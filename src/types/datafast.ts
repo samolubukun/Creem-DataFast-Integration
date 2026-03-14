@@ -9,6 +9,7 @@ export interface DataFastPaymentRequest {
   name?: string;
   email?: string;
   datafast_visitor_id?: string;
+  datafast_session_id?: string;
 }
 
 export interface DataFastPaymentResponse {

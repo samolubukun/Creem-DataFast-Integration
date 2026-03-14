@@ -1,39 +1,42 @@
 import { Creem } from 'creem';
-import type { CreemCheckoutCreateOptions, CreemConfig } from '../types/index.js';
-import { getDataFastVisitorId } from '../utils/cookie.js';
+import type { CreemCheckoutCreateOptions, CreemConfig, Logger } from '../types/index.js';
+import { getDataFastVisitorId, getDataFastSessionId } from '../utils/cookie.js';
+import { MissingTrackingError } from '../errors.js';
 
 const DEFAULT_COOKIE_NAME = 'datafast_visitor_id';
+const DEFAULT_SESSION_COOKIE_NAME = 'datafast_session_id';
 
 export interface CreemDataFastClientOptions extends CreemConfig {
   cookieName?: string;
+  sessionCookieName?: string;
+  strictTracking?: boolean;
+  testMode?: boolean;
+  logger?: Logger;
 }
 
-/**
- * A thin wrapper around the core CREEM SDK that automatically injects the
- * DataFast visitor ID into checkout metadata so payments can be attributed.
- */
 export class CreemDataFastClient {
   private creem: Creem;
   private cookieName: string;
+  private sessionCookieName: string;
+  private strictTracking: boolean;
+  private logger: Logger;
 
   constructor(options: CreemDataFastClientOptions) {
     this.creem = new Creem({
       apiKey: options.apiKey,
-      serverIdx: options.serverIdx ?? 0,
+      serverIdx: options.testMode ? 1 : 0,
     });
     this.cookieName = options.cookieName ?? DEFAULT_COOKIE_NAME;
+    this.sessionCookieName = options.sessionCookieName ?? DEFAULT_SESSION_COOKIE_NAME;
+    this.strictTracking = options.strictTracking ?? false;
+    this.logger = options.logger ?? {
+      debug: console.debug.bind(console),
+      info: console.info.bind(console),
+      warn: console.warn.bind(console),
+      error: console.error.bind(console),
+    };
   }
 
-  /**
-   * Create a CREEM checkout and inject the DataFast visitor ID into
-   * checkout metadata.
-   *
-   * Use this when you have access to the raw Cookie header or a parsed
-   * cookies object from the incoming HTTP request.
-   *
-   * @param options  Standard CREEM checkout options.
-   * @param cookies  The raw `Cookie` header string, or a parsed `{ name: value }` object.
-   */
   async createCheckout(
     options: CreemCheckoutCreateOptions,
     cookies?: string | Record<string, string>
@@ -41,29 +44,50 @@ export class CreemDataFastClient {
     const visitorId = cookies
       ? getDataFastVisitorId(cookies, this.cookieName)
       : null;
+    const sessionId = cookies
+      ? getDataFastSessionId(cookies, this.sessionCookieName)
+      : null;
 
-    return this.createCheckoutWithVisitorId(options, visitorId);
+    return this.createCheckoutWithTracking(options, visitorId, sessionId);
   }
 
-  /**
-   * Create a CREEM checkout with an explicit DataFast visitor ID.
-   *
-   * Use this when the client has already extracted the visitor ID
-   * (e.g. from `document.cookie` on the browser) and sent it to your
-   * server in the request body.
-   */
   async createCheckoutWithVisitorId(
     options: CreemCheckoutCreateOptions,
-    visitorId: string | null
+    visitorId: string | null,
+    sessionId?: string | null
   ): Promise<{ checkoutUrl: string; checkoutId: string }> {
-    const metadata = visitorId
-      ? { ...options.metadata, datafast_visitor_id: visitorId }
-      : options.metadata ?? {};
+    return this.createCheckoutWithTracking(options, visitorId, sessionId ?? null);
+  }
+
+  private async createCheckoutWithTracking(
+    options: CreemCheckoutCreateOptions,
+    visitorId: string | null,
+    sessionId: string | null
+  ): Promise<{ checkoutUrl: string; checkoutId: string }> {
+    if (this.strictTracking && !visitorId) {
+      throw new MissingTrackingError();
+    }
+
+    const metadata: Record<string, unknown> = { ...options.metadata };
+
+    if (visitorId) {
+      metadata.datafast_visitor_id = visitorId;
+    }
+
+    if (sessionId) {
+      metadata.datafast_session_id = sessionId;
+    }
 
     const checkout = await this.creem.checkouts.create({
       ...options,
       metadata,
     } as any);
+
+    this.logger.debug?.('Created checkout', {
+      checkoutId: checkout.id,
+      hasVisitorId: !!visitorId,
+      hasSessionId: !!sessionId,
+    });
 
     return {
       checkoutUrl: checkout.checkoutUrl ?? '',
@@ -71,7 +95,6 @@ export class CreemDataFastClient {
     };
   }
 
-  /** Access the underlying CREEM SDK client. */
   getCreemClient(): Creem {
     return this.creem;
   }
