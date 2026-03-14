@@ -8,6 +8,9 @@ export {
   buildCheckoutUrlWithVisitorId,
   addVisitorIdToMetadata,
   DataFastClient,
+  // Guide-compatible aliases
+  getDataFastVisitorId as readDataFastVisitorIdFromBrowser,
+  buildCheckoutUrlWithVisitorId as appendVisitorIdToCheckoutUrl,
 } from './client/index.js';
 
 // Server (webhook handlers)
@@ -32,4 +35,7 @@ export {
 export {
   getDataFastVisitorId,
   parseCookieHeader,
+  // Guide-compatible aliases
+  getDataFastVisitorId as readDataFastVisitorId,
+  parseCookieHeader as parseCookies,
 } from './utils/cookie.js';
