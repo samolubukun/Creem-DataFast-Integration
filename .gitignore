@@ -11,3 +11,4 @@ coverage
 *.tsbuildinfo
 nul
 CREEM-DATAFAST-INTEGRATION-GUIDE.md
+.npmrc
