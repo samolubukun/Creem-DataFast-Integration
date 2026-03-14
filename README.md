@@ -1,4 +1,4 @@
-# creem-datafast
+# creem-datafast-integration
 
 TypeScript package that automatically connects [CREEM](https://creem.io) payments to [DataFast](https://datafa.st) analytics for revenue attribution. Merchants can attribute revenue to traffic sources without writing any glue code.
 
@@ -19,7 +19,7 @@ TypeScript package that automatically connects [CREEM](https://creem.io) payment
 ## Installation
 
 ```bash
-npm install creem-datafast creem
+npm install creem-datafast-integration
 ```
 
 ## How It Works
@@ -96,7 +96,7 @@ This sets the `datafast_visitor_id` cookie automatically.
 
 ```typescript
 import express from 'express';
-import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast';
+import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast-integration';
 
 const app = express();
 
@@ -147,7 +147,7 @@ app.listen(3000);
 
 ```typescript
 import { NextRequest, NextResponse } from 'next/server';
-import { createCreemDataFastClient } from 'creem-datafast';
+import { createCreemDataFastClient } from 'creem-datafast-integration';
 
 const creemClient = createCreemDataFastClient({
   apiKey: process.env.CREEM_API_KEY!,
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
 
 ```typescript
 import { NextRequest } from 'next/server';
-import { creemDataFastWebhookHandler } from 'creem-datafast';
+import { creemDataFastWebhookHandler } from 'creem-datafast-integration';
 
 export async function POST(request: NextRequest) {
   return creemDataFastWebhookHandler(request, {
@@ -211,7 +211,7 @@ async function checkout() {
 Or use the package's client-side helpers:
 
 ```typescript
-import { getDataFastVisitorIdBrowser, buildCheckoutUrlWithVisitorId } from 'creem-datafast';
+import { getDataFastVisitorIdBrowser, buildCheckoutUrlWithVisitorId } from 'creem-datafast-integration';
 
 const visitorId = getDataFastVisitorIdBrowser();
 const url = buildCheckoutUrlWithVisitorId('https://checkout.creem.io/xxx', visitorId);
@@ -220,7 +220,7 @@ const url = buildCheckoutUrlWithVisitorId('https://checkout.creem.io/xxx', visit
 ### 5. Generic Handler (Any Framework)
 
 ```typescript
-import { handleGenericWebhook } from 'creem-datafast';
+import { handleGenericWebhook } from 'creem-datafast-integration';
 
 const result = await handleGenericWebhook({
   creemApiKey: process.env.CREEM_API_KEY!,

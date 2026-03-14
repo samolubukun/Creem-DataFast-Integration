@@ -10,7 +10,7 @@ export interface NextJsWebhookOptions extends WebhookHandlerOptions {}
  *
  * ```ts
  * // app/api/webhooks/creem/route.ts
- * import { creemDataFastWebhookHandler } from 'creem-datafast';
+ * import { creemDataFastWebhookHandler } from 'creem-datafast-integration';
  *
  * export async function POST(request: NextRequest) {
  *   return creemDataFastWebhookHandler(request, { ... });

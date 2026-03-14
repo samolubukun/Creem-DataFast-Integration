@@ -1,6 +1,6 @@
 {
-  "name": "creem-datafast",
-  "version": "1.0.0",
+  "name": "creem-datafast-integration",
+  "version": "1.0.2",
   "description": "TypeScript package that connects CREEM payments to DataFast analytics for revenue attribution",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCreemDataFastClient } from 'creem-datafast';
+import { createCreemDataFastClient } from 'creem-datafast-integration';
 
 const creemClient = createCreemDataFastClient({
   apiKey: process.env.CREEM_API_KEY!,

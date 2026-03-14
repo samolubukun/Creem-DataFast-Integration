@@ -1,6 +1,6 @@
 import express from 'express';
 import { config } from 'dotenv';
-import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast';
+import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast-integration';
 
 config();
 

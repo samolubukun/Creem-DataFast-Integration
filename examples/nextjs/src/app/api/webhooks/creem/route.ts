@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { creemDataFastWebhookHandler } from 'creem-datafast';
+import { creemDataFastWebhookHandler } from 'creem-datafast-integration';
 
 export async function POST(request: NextRequest) {
   return creemDataFastWebhookHandler(request, {
