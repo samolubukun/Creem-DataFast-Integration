@@ -1,4 +1,4 @@
-export { WebhookHandler, createWebhookHandler } from './webhook-handler.js';
+export { WebhookHandler, createWebhookHandler, verifyWebhookSignature } from './webhook-handler.js';
 export { creemDataFastWebhook } from './express.js';
 export { creemDataFastWebhookHandler, createNextJsWebhookHandler } from './nextjs.js';
 export { handleGenericWebhook } from './generic.js';

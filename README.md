@@ -2,12 +2,19 @@
 
 TypeScript package that automatically connects [CREEM](https://creem.io) payments to [DataFast](https://datafa.st) analytics for revenue attribution. Merchants can attribute revenue to traffic sources without writing any glue code.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
+[![CI](https://github.com/samolubukun/Creem-DataFast-Integration/actions/workflows/ci.yml/badge.svg)](https://github.com/samolubukun/Creem-DataFast-Integration/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/creem-datafast-integration.svg)](https://www.npmjs.com/package/creem-datafast-integration)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 
 ## Features
 
 - **Zero glue code** — one factory call wires up checkout attribution and webhook forwarding
-- **Framework adapters** — Next.js App Router and Express out of the box, or bring your own
+- **Edge-runtime ready** — uses the Web Crypto API (`SubtleCrypto`); works in Cloudflare Workers, Bun, Deno, and Node.js 18+
+- **Framework adapters** — Next.js App Router, Express, and a generic handler for Hono/Fastify/Koa/CF Workers
+- **Custom SDK injection** — pass a pre-configured `Creem` instance instead of an API key
+- **Standalone signature verification** — `verifyWebhookSignature()` for custom middleware flows
+- **URL query-param fallback** — `getVisitorIdFromUrl()` / `getVisitorIdWithFallback()` for SSR and email deep-links
 - **Production-ready** — idempotent webhooks, retries with backoff, HMAC-SHA256 signature verification
 - **Refund support** — forwards `refund.created` as `refunded: true` payment events
 - **Currency-aware** — correctly converts zero-decimal (JPY, KRW) and three-decimal (KWD, BHD) currencies
@@ -16,6 +23,7 @@ TypeScript package that automatically connects [CREEM](https://creem.io) payment
 - **Distributed idempotency** — Upstash Redis adapter for serverless/multi-instance deployments
 - **Configurable** — timeout, retry logic, custom logger
 - **TypeScript first** — full type definitions included
+- **AI-ready** — `SKILL.md` for Claude/Cursor/Copilot auto-integration
 
 ## Installation
 
@@ -33,36 +41,34 @@ npm install @upstash/redis
 ### Next.js
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
+// app/api/checkout/route.ts
 import { createCreemDataFastClient } from 'creem-datafast-integration';
+import { cookies } from 'next/headers';
 
-const creemClient = createCreemDataFastClient({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-  testMode: true
-});
+const client = createCreemDataFastClient({ apiKey: process.env.CREEM_API_KEY! });
 
-export async function POST(request: NextRequest) {
-  const { checkoutUrl } = await creemClient.createCheckout(
+export async function POST() {
+  const cookieStore = await cookies();
+  const cookieObj = Object.fromEntries(cookieStore.getAll().map(c => [c.name, c.value]));
+
+  const { checkoutUrl } = await client.createCheckout(
     { productId: process.env.CREEM_PRODUCT_ID! },
-    { request }
+    cookieObj
   );
 
-  return NextResponse.redirect(checkoutUrl, { status: 303 });
+  return Response.redirect(checkoutUrl, 303);
 }
 ```
 
 ```typescript
-import { creemDataFastWebhookHandler } from 'creem-datafast-integration';
+// app/api/webhooks/creem/route.ts
+import { createNextJsWebhookHandler } from 'creem-datafast-integration/nextjs';
 
-export async function POST(request: NextRequest) {
-  return creemDataFastWebhookHandler(request, {
-    creemApiKey: process.env.CREEM_API_KEY!,
-    datafastApiKey: process.env.DATAFAST_API_KEY!,
-    webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-  });
-}
+export const POST = createNextJsWebhookHandler({
+  creemApiKey: process.env.CREEM_API_KEY!,
+  datafastApiKey: process.env.DATAFAST_API_KEY!,
+  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
+});
 ```
 
 ### Express
@@ -72,18 +78,13 @@ import express from 'express';
 import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast-integration';
 
 const app = express();
-const creemClient = createCreemDataFastClient({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-});
+const client = createCreemDataFastClient({ apiKey: process.env.CREEM_API_KEY! });
 
 app.post('/api/checkout', async (req, res) => {
-  const { checkoutUrl } = await creemClient.createCheckout(
+  const { checkoutUrl } = await client.createCheckout(
     { productId: process.env.CREEM_PRODUCT_ID! },
-    { request: { headers: req.headers, url: req.url } }
+    req.cookies
   );
-
   res.redirect(303, checkoutUrl);
 });
 
@@ -98,112 +99,162 @@ app.post(
 );
 ```
 
+### Cloudflare Workers / Hono / Bun / Deno
+
+```typescript
+import { handleGenericWebhook } from 'creem-datafast-integration/server';
+
+// Works in any framework — Hono, Fastify, Koa, raw CF Workers fetch handler…
+app.post('/webhooks/creem', async (c) => {
+  const result = await handleGenericWebhook({
+    creemApiKey: process.env.CREEM_API_KEY!,
+    datafastApiKey: process.env.DATAFAST_API_KEY!,
+    webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
+    getRawBody: () => c.req.text(),
+    getHeaders: () => Object.fromEntries(c.req.raw.headers),
+  });
+  return c.json(result, result.success ? 200 : 400);
+});
+```
+
 ### Client-Side
 
 ```typescript
-import { getDataFastVisitorIdBrowser, buildCheckoutUrlWithVisitorId } from 'creem-datafast-integration/client';
+import {
+  DataFastClient,
+  getVisitorIdFromUrl,
+  getVisitorIdWithFallback,
+} from 'creem-datafast-integration/client';
 
-const visitorId = getDataFastVisitorIdBrowser();
-const url = buildCheckoutUrlWithVisitorId('https://checkout.creem.io/xxx', visitorId);
+// From cookies (browser)
+const visitorId = DataFastClient.getVisitorId();
+
+// From URL query params (SSR / email deep-links)
+const idFromUrl = getVisitorIdFromUrl('https://example.com/?datafast_visitor_id=abc');
+
+// Cookies first, then URL fallback
+const id = getVisitorIdWithFallback();
 ```
 
 ## Advanced
 
-### Strict Tracking Mode
-
-Throw an error when no visitor ID is found at checkout:
+### Inject a Pre-Configured Creem SDK Instance
 
 ```typescript
-const creemClient = createCreemDataFastClient({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
+import { Creem } from 'creem';
+import { createCreemDataFastClient } from 'creem-datafast-integration';
+
+const creemSdk = new Creem({ apiKey: process.env.CREEM_API_KEY! });
+
+// Share a single SDK instance across your app
+const client = createCreemDataFastClient({ apiKey: '', creemClient: creemSdk });
+```
+
+### Standalone Signature Verification (Edge-Compatible)
+
+```typescript
+import { verifyWebhookSignature, InvalidCreemSignatureError } from 'creem-datafast-integration';
+
+// Uses SubtleCrypto — works in Cloudflare Workers, Bun, Deno, Node.js 18+
+try {
+  await verifyWebhookSignature(rawBody, signature, process.env.CREEM_WEBHOOK_SECRET!);
+} catch (e) {
+  if (e instanceof InvalidCreemSignatureError) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+  throw e;
+}
+```
+
+### Strict Tracking Mode
+
+```typescript
+const client = createCreemDataFastClient({
+  apiKey: process.env.CREEM_API_KEY!,
   strictTracking: true, // throws MissingTrackingError if no visitor ID
 });
 ```
 
-### Idempotency (Production)
-
-For multi-instance deployments, use Upstash Redis:
+### Idempotency (Production Multi-Instance)
 
 ```bash
-npm install @upstash/redis creem-datafast-integration
+npm install @upstash/redis
 ```
 
 ```typescript
-import { Redis } from '@upstash/redis';
-import { createCreemDataFastClient, createUpstashIdempotencyStore } from 'creem-datafast-integration';
+import { createUpstashIdempotencyStore } from 'creem-datafast-integration/idempotency/upstash';
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!
-});
-
-const creemClient = createCreemDataFastClient({
+createWebhookHandler({
   creemApiKey: process.env.CREEM_API_KEY!,
   datafastApiKey: process.env.DATAFAST_API_KEY!,
-  idempotencyStore: createUpstashIdempotencyStore(redis)
+  idempotencyStore: createUpstashIdempotencyStore({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    ttlSeconds: 86400,
+  }),
 });
 ```
 
-### Configuration Options
+### Retry with Exponential Backoff
 
 ```typescript
-{
-  creemApiKey: string;           // CREEM API key
-  creemWebhookSecret?: string;   // For signature verification
-  datafastApiKey: string;        // DataFast API key
-  testMode?: boolean;            // Use test API (default: false)
-  timeoutMs?: number;            // DataFast request timeout (default: 8000)
-  retry?: {
-    retries?: number;           // Extra attempts (default: 1)
-    baseDelayMs?: number;       // Base backoff (default: 250)
-    maxDelayMs?: number;        // Max backoff (default: 2000)
-  };
-  strictTracking?: boolean;       // Throw if no visitor ID (default: false)
-  idempotencyStore?: IdempotencyStore;
-  logger?: Logger;              // Custom logger
-}
+createWebhookHandler({
+  // ...
+  retry: { retries: 3, baseDelayMs: 500, maxDelayMs: 5000 },
+});
+```
+
+### Custom Logger
+
+```typescript
+createWebhookHandler({
+  // ...
+  logger: {
+    info:  (msg, meta) => myLogger.info(msg, meta),
+    warn:  (msg, meta) => myLogger.warn(msg, meta),
+    error: (msg, meta) => myLogger.error(msg, meta),
+  },
+});
 ```
 
 ### Error Handling
 
 ```typescript
 import {
-  CreemDataFastError,
-  InvalidCreemSignatureError,
-  MissingTrackingError,
-  DataFastRequestError
+  CreemDataFastError,        // base class
+  InvalidCreemSignatureError, // webhook sig mismatch
+  MissingTrackingError,       // strictTracking: true and no visitor ID
+  DataFastRequestError,       // DataFast HTTP error (.status, .retryable)
 } from 'creem-datafast-integration';
 
 try {
   // ...
 } catch (error) {
-  if (error instanceof InvalidCreemSignatureError) {
-    // Invalid webhook signature
-  } else if (error instanceof MissingTrackingError) {
-    // No visitor ID in strict mode
-  } else if (error instanceof DataFastRequestError) {
-    // DataFast API failed
-    if (error.retryable) {
-      // Can retry
-    }
+  if (error instanceof DataFastRequestError) {
+    console.error('DataFast error', error.status, error.retryable);
   }
 }
 ```
 
 ## Supported Events
 
-| Event | Description |
+| CREEM event | DataFast forwarding |
 |---|---|
-| `checkout.completed` | One-time payment completed |
-| `subscription.paid` | Recurring subscription payment |
-| `refund.created` | Refund issued (forwards as `refunded: true`) |
+| `checkout.completed` | One-time payment |
+| `subscription.paid` | Recurring payment (`renewal: true`) |
+| `refund.created` | Refund (`refund: true`, negative amount) |
 
 ## Currency Handling
 
-- **Standard currencies** (USD, EUR, GBP): amounts in cents → decimal (2999 → 29.99)
-- **Zero-decimal currencies** (JPY, KRW, VND): amounts stay as-is
-- **Three-decimal currencies** (KWD, BHD, OMR): amounts divided by 1000
+| Type | Examples | Conversion |
+|---|---|---|
+| Standard (2 decimal) | USD, EUR, GBP | `amount / 100` |
+| Zero-decimal | JPY, KRW, VND, IDR, CLP, ISK | `amount` (unchanged) |
+| Three-decimal | KWD, BHD, OMR, TND, JOD, IQD | `amount / 1000` |
+
+## AI Agent Integration
+
+Copy [`SKILL.md`](./SKILL.md) into Claude, Cursor, Copilot, or any AI coding assistant to give it full integration context.
 
 ## License
 

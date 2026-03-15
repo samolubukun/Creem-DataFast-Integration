@@ -60,6 +60,52 @@ export function buildCheckoutUrlWithVisitorId(
   return url.toString();
 }
 
+/**
+ * Read the DataFast visitor ID from URL query parameters.
+ * Useful as a fallback when cookies are not available (e.g. cross-origin
+ * checkout redirects, server-side rendering, or email deep-links).
+ *
+ * @param urlOrSearch  A full URL string, a URLSearchParams instance, or a
+ *                     raw query string like `"?datafast_visitor_id=abc"`.
+ *                     Defaults to `window.location.search` when omitted.
+ * @param paramName    Query parameter name (default: `"datafast_visitor_id"`)
+ */
+export function getVisitorIdFromUrl(
+  urlOrSearch?: string | URLSearchParams,
+  paramName: string = DEFAULT_COOKIE_NAME
+): string | null {
+  let params: URLSearchParams;
+
+  if (urlOrSearch === undefined) {
+    if (typeof window === 'undefined') return null;
+    params = new URLSearchParams(window.location.search);
+  } else if (typeof urlOrSearch === 'string') {
+    try {
+      // Full URL
+      params = new URL(urlOrSearch).searchParams;
+    } catch {
+      // Bare query string
+      params = new URLSearchParams(urlOrSearch);
+    }
+  } else {
+    params = urlOrSearch;
+  }
+
+  return params.get(paramName);
+}
+
+/**
+ * Returns the visitor ID from cookies first, then falls back to URL query
+ * parameters.  This covers the common case where a user arrives from a link
+ * that carries the ID in the URL before the DataFast cookie has been set.
+ */
+export function getVisitorIdWithFallback(
+  cookieName: string = DEFAULT_COOKIE_NAME,
+  urlOrSearch?: string | URLSearchParams
+): string | null {
+  return getDataFastVisitorId(cookieName) ?? getVisitorIdFromUrl(urlOrSearch, cookieName);
+}
+
 export function addTrackingToMetadata(
   metadata: Record<string, unknown> = {},
   visitorId?: string | null,
@@ -90,6 +136,8 @@ export const DataFastClient = {
   buildCheckoutUrl: buildCheckoutUrlWithVisitorId,
   addTrackingToMetadata,
   addToMetadata: addVisitorIdToMetadata,
+  getVisitorIdFromUrl,
+  getVisitorIdWithFallback,
 };
 
 export default DataFastClient;

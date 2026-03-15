@@ -4,6 +4,8 @@ import {
   hasDataFastVisitorId,
   buildCheckoutUrlWithVisitorId,
   addVisitorIdToMetadata,
+  getVisitorIdFromUrl,
+  getVisitorIdWithFallback,
   DataFastClient,
 } from '../../src/client/index';
 
@@ -147,6 +149,55 @@ describe('Browser client helpers', () => {
       expect(DataFastClient.hasVisitorId).toBeDefined();
       expect(DataFastClient.buildCheckoutUrl).toBeDefined();
       expect(DataFastClient.addToMetadata).toBeDefined();
+      expect(DataFastClient.getVisitorIdFromUrl).toBeDefined();
+      expect(DataFastClient.getVisitorIdWithFallback).toBeDefined();
+    });
+  });
+
+  describe('getVisitorIdFromUrl', () => {
+    it('extracts visitor ID from a full URL string', () => {
+      const id = getVisitorIdFromUrl('https://example.com/success?datafast_visitor_id=abc123');
+      expect(id).toBe('abc123');
+    });
+
+    it('extracts visitor ID from a bare query string', () => {
+      const id = getVisitorIdFromUrl('?datafast_visitor_id=qry_456');
+      expect(id).toBe('qry_456');
+    });
+
+    it('returns null when param is absent', () => {
+      const id = getVisitorIdFromUrl('https://example.com/success?other=val');
+      expect(id).toBeNull();
+    });
+
+    it('respects a custom param name', () => {
+      const id = getVisitorIdFromUrl('https://example.com/?my_vid=xyz', 'my_vid');
+      expect(id).toBe('xyz');
+    });
+
+    it('accepts a URLSearchParams instance', () => {
+      const params = new URLSearchParams('datafast_visitor_id=sp_789');
+      expect(getVisitorIdFromUrl(params)).toBe('sp_789');
+    });
+  });
+
+  describe('getVisitorIdWithFallback', () => {
+    it('returns cookie value when available', () => {
+      mockDocument.cookie = 'datafast_visitor_id=cookie_val';
+      const id = getVisitorIdWithFallback('datafast_visitor_id', '?datafast_visitor_id=url_val');
+      expect(id).toBe('cookie_val');
+    });
+
+    it('falls back to URL param when cookie is absent', () => {
+      mockDocument.cookie = '';
+      const id = getVisitorIdWithFallback('datafast_visitor_id', '?datafast_visitor_id=url_val');
+      expect(id).toBe('url_val');
+    });
+
+    it('returns null when both cookie and URL param are absent', () => {
+      mockDocument.cookie = '';
+      const id = getVisitorIdWithFallback('datafast_visitor_id', '?other=val');
+      expect(id).toBeNull();
     });
   });
 });

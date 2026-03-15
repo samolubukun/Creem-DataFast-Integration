@@ -1,9 +1,38 @@
-import * as crypto from 'node:crypto';
 import type { WebhookHandlerOptions, CreemWebhookRaw, Logger, IdempotencyStore } from '../types/index.js';
 import type { DataFastPaymentResponse } from '../types/datafast.js';
 import { mapCreemEventToDataFast, mapToDataFastPaymentRequest } from '../utils/map-payment.js';
 import { createMemoryIdempotencyStore } from '../utils/idempotency.js';
-import { DataFastRequestError as DFError } from '../errors.js';
+import { DataFastRequestError as DFError, InvalidCreemSignatureError } from '../errors.js';
+
+/**
+ * Cross-runtime HMAC-SHA256 verification using the Web Crypto API (SubtleCrypto).
+ * Works in Node.js 18+, Cloudflare Workers, Bun, Deno, and browser environments.
+ * No dependency on `node:crypto`.
+ */
+async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  return Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Constant-time hex string comparison (prevents timing attacks). */
+function safeHexEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
 
 const DATAFAST_API_URL = 'https://datafa.st/api/v1/payments';
 
@@ -50,7 +79,8 @@ export class WebhookHandler {
         if (!signature) {
           return { success: false, message: 'Missing creem-signature header' };
         }
-        if (!this.verifySignature(rawBody, signature)) {
+        const valid = await this.verifySignature(rawBody, signature);
+        if (!valid) {
           return { success: false, message: 'Invalid webhook signature' };
         }
       }
@@ -102,17 +132,10 @@ export class WebhookHandler {
     }
   }
 
-  verifySignature(payload: string, signature: string): boolean {
-    const expected = crypto
-      .createHmac('sha256', this.webhookSecret!)
-      .update(payload)
-      .digest('hex');
-
+  async verifySignature(payload: string, signature: string): Promise<boolean> {
     try {
-      return crypto.timingSafeEqual(
-        Buffer.from(expected, 'hex'),
-        Buffer.from(signature, 'hex')
-      );
+      const expected = await hmacSha256Hex(this.webhookSecret!, payload);
+      return safeHexEqual(expected, signature);
     } catch {
       return false;
     }
@@ -224,6 +247,26 @@ export class WebhookHandler {
 
 export function createWebhookHandler(options: WebhookHandlerOptions): WebhookHandler {
   return new WebhookHandler(options);
+}
+
+/**
+ * Standalone webhook signature verification using Web Crypto (SubtleCrypto).
+ * Works in Node.js 18+, Cloudflare Workers, Bun, and Deno — no `node:crypto` required.
+ *
+ * @param payload   Raw request body string
+ * @param signature Hex signature from the `creem-signature` header
+ * @param secret    Your Creem webhook secret
+ * @throws {InvalidCreemSignatureError} if the signature does not match
+ */
+export async function verifyWebhookSignature(
+  payload: string,
+  signature: string,
+  secret: string
+): Promise<void> {
+  const expected = await hmacSha256Hex(secret, payload);
+  if (!safeHexEqual(expected, signature)) {
+    throw new InvalidCreemSignatureError();
+  }
 }
 
 function createDefaultLogger(): Logger {

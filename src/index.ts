@@ -6,12 +6,15 @@ export {
   hasDataFastVisitorId,
   buildCheckoutUrlWithVisitorId,
   addTrackingToMetadata,
+  getVisitorIdFromUrl,
+  getVisitorIdWithFallback,
   DataFastClient,
 } from './client/index.js';
 
 export {
   WebhookHandler,
   createWebhookHandler,
+  verifyWebhookSignature,
   creemDataFastWebhook,
   creemDataFastWebhookHandler,
   createNextJsWebhookHandler,

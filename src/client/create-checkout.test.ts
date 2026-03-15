@@ -148,12 +148,23 @@ describe('CreemDataFastClient', () => {
     });
   });
 
-  describe('getCreemClient', () => {
-    it('returns underlying CREEM SDK client', () => {
-      client = new CreemDataFastClient({ apiKey: 'test_key' });
-      const creemClient = client.getCreemClient();
-      expect(creemClient).toBeDefined();
-      expect(creemClient.checkouts).toBeDefined();
+  describe('creemClient injection', () => {
+    it('uses injected creemClient instead of creating one from apiKey', async () => {
+      const mockCheckoutsCreate = vi.fn().mockResolvedValue({
+        id: 'injected_checkout',
+        checkoutUrl: 'https://checkout.creem.io/injected',
+      });
+
+      const injectedClient = {
+        checkouts: { create: mockCheckoutsCreate },
+      } as any;
+
+      const client = new CreemDataFastClient({ apiKey: '', creemClient: injectedClient });
+
+      const result = await client.createCheckout({ productId: 'prod_injected' });
+
+      expect(result.checkoutId).toBe('injected_checkout');
+      expect(mockCheckoutsCreate).toHaveBeenCalledTimes(1);
     });
   });
 });
