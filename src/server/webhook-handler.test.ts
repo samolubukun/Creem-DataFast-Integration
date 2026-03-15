@@ -1,21 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { webcrypto } from 'node:crypto';
 import { WebhookHandler, createWebhookHandler, verifyWebhookSignature } from '../../src/server/webhook-handler';
 import { InvalidCreemSignatureError } from '../../src/errors';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-/** Compute HMAC-SHA256 hex via Web Crypto (same as production code). */
+// Resolve SubtleCrypto the same way the source does, so tests pass on Node 18.
+const subtle: SubtleCrypto =
+  (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle)
+    ? globalThis.crypto.subtle
+    : (webcrypto as unknown as Crypto).subtle;
+
+/** Compute HMAC-SHA256 hex via Web Crypto (mirrors production code). */
 async function computeSignature(secret: string, payload: string): Promise<string> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
+  const key = await subtle.importKey(
     'raw',
     enc.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  const sig = await subtle.sign('HMAC', key, enc.encode(payload));
   return Array.from(new Uint8Array(sig))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');

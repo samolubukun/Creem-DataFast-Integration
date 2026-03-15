@@ -1,24 +1,33 @@
+import { webcrypto } from 'node:crypto';
 import type { WebhookHandlerOptions, CreemWebhookRaw, Logger, IdempotencyStore } from '../types/index.js';
 import type { DataFastPaymentResponse } from '../types/datafast.js';
 import { mapCreemEventToDataFast, mapToDataFastPaymentRequest } from '../utils/map-payment.js';
 import { createMemoryIdempotencyStore } from '../utils/idempotency.js';
 import { DataFastRequestError as DFError, InvalidCreemSignatureError } from '../errors.js';
 
+// Resolve the SubtleCrypto implementation once at module load.
+// In Node 19+ and all edge runtimes (CF Workers, Bun, Deno) `crypto` is a
+// global.  In Node 18 (and vitest's node environment) it is not, so we fall
+// back to the built-in `node:crypto` webcrypto object.
+const subtle: SubtleCrypto =
+  (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle)
+    ? globalThis.crypto.subtle
+    : (webcrypto as unknown as Crypto).subtle;
+
 /**
  * Cross-runtime HMAC-SHA256 verification using the Web Crypto API (SubtleCrypto).
  * Works in Node.js 18+, Cloudflare Workers, Bun, Deno, and browser environments.
- * No dependency on `node:crypto`.
  */
 async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
   const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
+  const key = await subtle.importKey(
     'raw',
     enc.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
-  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  const sig = await subtle.sign('HMAC', key, enc.encode(payload));
   return Array.from(new Uint8Array(sig))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
