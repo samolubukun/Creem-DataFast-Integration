@@ -1,6 +1,6 @@
 {
   "name": "creem-datafast-integration",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Premium wrapper for Creem SDK to capture DataFast attribution and handle webhooks with idempotency and hydration.",
   "type": "module",
   "main": "./dist/index.js",
