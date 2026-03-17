@@ -1,278 +1,84 @@
-# creem-datafast-integration — AI Agent Skill
+# SKILL: Creem DataFast Premium Engine Integration
 
-Paste this file into Claude, Cursor, Copilot, or any AI coding assistant to give it full context for integrating `creem-datafast-integration` into a project.
+This skill provides the comprehensive context for integrating [CREEM](https://creem.io) with [DataFast](https://datafa.st) using the `creem-datafast-integration` Premium Engine.
 
----
+## 🏗️ Architecture: Premium Engine
 
-## What this package does
+The package follows a domain-driven "Premium Engine" architecture:
 
-`creem-datafast-integration` is a TypeScript package that bridges **CREEM** (payment processor) and **DataFast** (revenue analytics). When a payment is completed via CREEM, the package forwards that payment event to DataFast so it is attributed to the correct visitor/session.
+- **Foundation**: Types and custom Errors.
+- **Infrastructure**: HTTP/Cookie/Amount utilities.
+- **Engine**: Checkout creation, Webhook handling, Transaction Hydration, and Signature Verification.
+- **Gateways**: Official adapters for Next.js and Express.
+- **Storage**: Atomic idempotency stores (Memory & Upstash).
+- **Browser**: Zero-config tracking resolution script.
 
-It works in **Node.js 18+**, **Cloudflare Workers**, **Bun**, and **Deno** (uses the Web Crypto API — no Node-specific dependencies in the hot path).
+## 🏁 Core Pattern: The Unified Factory
 
----
-
-## Installation
-
-```bash
-npm install creem-datafast-integration
-```
-
-Optional peer dependencies:
-- `express` — for the Express middleware
-- `next` — for the Next.js helper
-- `@upstash/redis` — for the Upstash idempotency store
-
----
-
-## Environment variables you need
-
-```
-CREEM_API_KEY=creem_live_...
-CREEM_WEBHOOK_SECRET=whsec_...
-DATAFAST_API_KEY=df_...
-```
-
----
-
-## Key concepts
-
-| Concept | What it is |
-|---|---|
-| `datafast_visitor_id` | Cookie/query-param set by DataFast's tracking script. Must be forwarded at checkout creation so DataFast can attribute the revenue. |
-| `datafast_session_id` | Session-level granularity (optional, also set by DataFast). |
-| Webhook forwarding | On `checkout.completed` / `subscription.paid` / `refund.created`, forward the event to DataFast's payments API. |
-| Idempotency | Each webhook event is stored by ID to prevent double-counting on retries. |
-
----
-
-## Server-side: Create a checkout (inject tracking IDs)
-
-### Next.js (App Router)
+Always use `createCreemDataFast` to initialize the client. This wires up all internal services (Creem SDK, DataFast API, Logger, Idempotency).
 
 ```ts
-// app/api/checkout/route.ts
-import { createCreemDataFastClient } from 'creem-datafast-integration';
-import { cookies } from 'next/headers';
+import { createCreemDataFast } from 'creem-datafast-integration';
 
-const client = createCreemDataFastClient({ apiKey: process.env.CREEM_API_KEY! });
-
-export async function POST(req: Request) {
-  const cookieStore = await cookies();
-  // Pass cookie object — the client extracts datafast_visitor_id automatically
-  const cookieObj = Object.fromEntries(
-    cookieStore.getAll().map(c => [c.name, c.value])
-  );
-
-  const { checkoutUrl } = await client.createCheckout(
-    { productId: 'prod_...' },
-    cookieObj
-  );
-
-  return Response.json({ checkoutUrl });
-}
-```
-
-### Express
-
-```ts
-import { createCreemDataFastClient } from 'creem-datafast-integration';
-
-const client = createCreemDataFastClient({ apiKey: process.env.CREEM_API_KEY! });
-
-app.post('/checkout', async (req, res) => {
-  const { checkoutUrl } = await client.createCheckout(
-    { productId: 'prod_...' },
-    req.cookies // or req.headers.cookie (string)
-  );
-  res.json({ checkoutUrl });
+const creemDataFast = createCreemDataFast({
+  creemApiKey: '...',
+  creemWebhookSecret: '...',
+  datafastApiKey: '...',
 });
 ```
 
-### Inject a pre-configured Creem SDK instance
+## 🛒 Checkout Creation
+
+Attribution happens automatically if you pass the `request` or `headers` in the context.
 
 ```ts
-import { Creem } from 'creem';
-import { createCreemDataFastClient } from 'creem-datafast-integration';
+// In Next.js App Router
+const { checkoutUrl } = await creemDataFast.createCheckout(
+  { productId: 'prod_123', successUrl: '/success' },
+  { request }
+);
 
-const creemClient = new Creem({ apiKey: process.env.CREEM_API_KEY! });
-
-// Pass it in — the package will not create a second instance
-const client = createCreemDataFastClient({ apiKey: '', creemClient });
-```
-
----
-
-## Server-side: Handle webhooks
-
-### Next.js (App Router)
-
-```ts
-// app/api/webhooks/creem/route.ts
-import { createNextJsWebhookHandler } from 'creem-datafast-integration/nextjs';
-
-const handler = createNextJsWebhookHandler({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-});
-
-export const POST = handler;
-```
-
-### Express
-
-```ts
-import { creemDataFastWebhook } from 'creem-datafast-integration/express';
-import express from 'express';
-
-const app = express();
-
-app.post(
-  '/webhooks/creem',
-  express.raw({ type: 'application/json' }),
-  creemDataFastWebhook({
-    creemApiKey: process.env.CREEM_API_KEY!,
-    datafastApiKey: process.env.DATAFAST_API_KEY!,
-    webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-  })
+// In Express
+const { checkoutId } = await creemDataFast.createCheckout(
+  { productId: 'prod_123', successUrl: '/success' },
+  { request: { headers: req.headers, url: req.url } }
 );
 ```
 
-### Cloudflare Workers / Hono / Bun / Deno (generic handler)
+## 🪝 Webhook Processing
+
+The engine handles signature verification, deduplication, payload mapping, and event hydration automatically.
 
 ```ts
-import { handleGenericWebhook } from 'creem-datafast-integration/server';
+// Next.js (app/api/webhooks/creem/route.ts)
+import { createNextWebhookHandler } from 'creem-datafast-integration/next';
+export const POST = createNextWebhookHandler(creemDataFast);
 
-// Hono example
-app.post('/webhooks/creem', async (c) => {
-  const result = await handleGenericWebhook({
-    creemApiKey: process.env.CREEM_API_KEY!,
-    datafastApiKey: process.env.DATAFAST_API_KEY!,
-    webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-    getRawBody: () => c.req.text(),
-    getHeaders: () => Object.fromEntries(c.req.raw.headers),
-  });
-  return c.json(result, result.success ? 200 : 400);
-});
+// Express
+import { createExpressWebhookHandler } from 'creem-datafast-integration/express';
+app.post('/webhook', express.raw({ type: 'application/json' }), createExpressWebhookHandler(creemDataFast));
 ```
 
----
+## 💧 Transaction Hydration
 
-## Standalone signature verification (edge-compatible)
+The engine automatically fetches the full transaction for `subscription.paid` events to ensure 100% accurate price and currency reporting in DataFast. This overcomes payload limitations in standard Creem webhooks.
 
-```ts
-import { verifyWebhookSignature, InvalidCreemSignatureError } from 'creem-datafast-integration';
+## 🛡️ Distributed Idempotency
 
-try {
-  await verifyWebhookSignature(rawBody, signature, process.env.CREEM_WEBHOOK_SECRET!);
-  // signature is valid — proceed
-} catch (e) {
-  if (e instanceof InvalidCreemSignatureError) {
-    return new Response('Invalid signature', { status: 401 });
-  }
-  throw e;
-}
-```
-
-Uses `SubtleCrypto` (Web Crypto API) — works in Cloudflare Workers, Bun, Deno, and Node.js 18+.
-
----
-
-## Client-side: Read tracking IDs
-
-```ts
-import { DataFastClient } from 'creem-datafast-integration/client';
-
-// From cookies (browser)
-const visitorId = DataFastClient.getVisitorId();
-
-// From URL query params (fallback for SSR / email deep-links)
-import { getVisitorIdFromUrl, getVisitorIdWithFallback } from 'creem-datafast-integration/client';
-
-const id = getVisitorIdFromUrl('https://example.com/success?datafast_visitor_id=abc');
-
-// Cookies first, then URL params
-const id2 = getVisitorIdWithFallback();
-```
-
----
-
-## Advanced options
-
-### Retry with exponential backoff
-
-```ts
-createWebhookHandler({
-  // ...
-  retry: { retries: 3, baseDelayMs: 500, maxDelayMs: 5000 },
-});
-```
-
-### Idempotency (Upstash Redis)
+Use the Upstash adapter for production environments to prevent duplicate revenue reporting across multi-instance deployments.
 
 ```ts
 import { createUpstashIdempotencyStore } from 'creem-datafast-integration/idempotency/upstash';
-
-createWebhookHandler({
-  // ...
-  idempotencyStore: createUpstashIdempotencyStore({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-    ttlSeconds: 86400,
-  }),
-});
+// Pass to createCreemDataFast options
 ```
 
-### Custom logger
+## 🌐 Browser Tracking
 
-```ts
-createWebhookHandler({
-  // ...
-  logger: {
-    debug: (msg, meta) => myLogger.debug(msg, meta),
-    info: (msg, meta) => myLogger.info(msg, meta),
-    warn: (msg, meta) => myLogger.warn(msg, meta),
-    error: (msg, meta) => myLogger.error(msg, meta),
-  },
-});
-```
+Include the browser script for zero-config tracking:
+`<script src=".../dist/client.js" data-auto-init="true"></script>`
 
-### Strict tracking mode
+## 📜 Supported Events
 
-```ts
-// Throws MissingTrackingError if datafast_visitor_id is absent
-createWebhookHandler({ ..., strictTracking: true });
-createCreemDataFastClient({ ..., strictTracking: true });
-```
-
----
-
-## Error classes
-
-```ts
-import {
-  CreemDataFastError,        // base class
-  InvalidCreemSignatureError, // webhook sig mismatch
-  MissingTrackingError,       // strictTracking: true and no visitor ID
-  DataFastRequestError,       // DataFast HTTP error (.status, .retryable)
-} from 'creem-datafast-integration';
-```
-
----
-
-## Supported events
-
-| CREEM event | Forwarded to DataFast as |
-|---|---|
-| `checkout.completed` | One-time payment |
-| `subscription.paid` | Recurring payment (`renewal: true`) |
-| `refund.created` | Refund (`refund: true`, negative amount) |
-
----
-
-## npm package
-
-- **Package**: `creem-datafast-integration`
-- **Registry**: https://www.npmjs.com/package/creem-datafast-integration
-- **GitHub**: https://github.com/samolubukun/Creem-DataFast-Integration
+- `checkout.completed` -> One-time purchase
+- `subscription.paid` -> Subscription revenue (Auto-Hydrated)
+- `refund.created` -> Revenue reversal

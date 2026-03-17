@@ -19,7 +19,13 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "creem-datafast-integration": ["../../src/index.ts"],
+      "creem-datafast-integration/express": ["../../src/gateways/express.ts"],
+      "creem-datafast-integration/next": ["../../src/gateways/next.ts"],
+      "creem-datafast-integration/idempotency/*": ["../../src/storage/*.ts"],
+      "creem-datafast-integration/client": ["../../src/browser/tracking.ts"],
+      "creem-datafast-integration/server": ["../../src/engine/webhooks.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
