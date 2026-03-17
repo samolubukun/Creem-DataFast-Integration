@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { webcrypto } from 'node:crypto';
 import { extractHeader, verifyCreemSignature } from './signature.js';
+
+const crypto = (globalThis as any).crypto || webcrypto;
 
 describe('signature', () => {
   describe('extractHeader', () => {

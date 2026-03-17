@@ -1,5 +1,8 @@
 import { getHeaderValue } from '../infrastructure/http.js';
 import type { HeadersLike } from '../foundation/types.js';
+import { webcrypto } from 'node:crypto';
+
+const crypto = (globalThis as any).crypto || webcrypto;
 
 export function extractHeader(headers: HeadersLike, name: string): string | undefined {
   return getHeaderValue(headers, name);
