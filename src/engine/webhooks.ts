@@ -61,7 +61,8 @@ function isInitialSubscriptionCheckout(payload: CheckoutCompletedEvent): boolean
 
 export async function handleWebhook(
   params: HandleWebhookParams,
-  dependencies: WebhookHandlerDependencies
+  dependencies: WebhookHandlerDependencies,
+  options?: { skipIdempotency?: boolean }
 ): Promise<HandleWebhookResult> {
   const signature = extractHeader(params.headers, 'creem-signature');
   if (!signature) {
@@ -90,24 +91,36 @@ export async function handleWebhook(
     };
   }
 
-  if (!eventId) {
-    throw new UnsupportedWebhookEventError('Supported webhook payload is missing id.');
-  }
-
-  const idempotencyStore = resolveIdempotencyStore(dependencies.idempotencyStore);
-  const canProcess = await claimEvent(
-    eventId,
-    idempotencyStore,
-    dependencies.idempotencyInFlightTtlSeconds
-  );
-  if (!canProcess) {
+  if (dependencies.eventFilter && !dependencies.eventFilter.includes(eventType)) {
     return {
       ok: true,
       ignored: true,
       eventId,
       eventType,
-      reason: 'duplicate_event',
+      reason: 'unsupported_event',
     };
+  }
+
+  if (!eventId) {
+    throw new UnsupportedWebhookEventError('Supported webhook payload is missing id.');
+  }
+
+  const idempotencyStore = resolveIdempotencyStore(dependencies.idempotencyStore);
+  if (!options?.skipIdempotency) {
+    const canProcess = await claimEvent(
+      eventId,
+      idempotencyStore,
+      dependencies.idempotencyInFlightTtlSeconds
+    );
+    if (!canProcess) {
+      return {
+        ok: true,
+        ignored: true,
+        eventId,
+        eventType,
+        reason: 'duplicate_event',
+      };
+    }
   }
 
   if (
@@ -141,7 +154,7 @@ export async function handleWebhook(
     throw error;
   }
 
-  let normalizedPayload: DataFastPaymentPayload;
+  let normalizedPayload: DataFastPaymentPayload | undefined;
   let datafastResponse: unknown;
 
   try {
@@ -177,9 +190,29 @@ export async function handleWebhook(
               return mapSubscriptionPaidToPayment(subscriptionPayload);
             })();
 
-    datafastResponse = await dependencies.datafast.sendPayment(normalizedPayload);
+    if (dependencies.dryRun) {
+      dependencies.logger.info('Dry-run mode: payment not sent to DataFast.', {
+        eventId,
+        eventType,
+        transactionId: normalizedPayload.transaction_id,
+      });
+      datafastResponse = { status: 200, body: { dryRun: true } };
+    } else {
+      datafastResponse = await dependencies.datafast.sendPayment(normalizedPayload);
+    }
   } catch (error) {
     await releaseEvent(eventId, idempotencyStore);
+    if (dependencies.onDeadLetter) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await dependencies.onDeadLetter({
+        eventType,
+        eventId,
+        transactionId: normalizedPayload?.transaction_id ?? eventId,
+        payment: normalizedPayload,
+        error: err,
+        attempts: (dependencies.retry?.retries ?? 1) + 1,
+      });
+    }
     throw error;
   }
 

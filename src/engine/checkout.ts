@@ -1,7 +1,11 @@
 import { getHeaderValue } from '../infrastructure/http.js';
 import { mergeTrackingIntoMetadata, readTrackingFromMetadata } from '../infrastructure/context.js';
 import { readTrackingFromCookieHeader } from '../infrastructure/http.js';
-import { CreemDataFastError, MissingTrackingError } from '../foundation/errors.js';
+import {
+  CreemDataFastError,
+  MetadataCollisionError,
+  MissingTrackingError,
+} from '../foundation/errors.js';
 import type {
   CheckoutDependencies,
   CreateCheckoutContext,
@@ -94,6 +98,25 @@ export async function createCheckout(
     captureSessionId: dependencies.captureSessionId,
     preferTracking: hasExplicitTracking(params.tracking),
   });
+
+  if (
+    params.mergeStrategy === 'error' &&
+    tracking.visitorId &&
+    metadataTracking.visitorId &&
+    tracking.visitorId !== metadataTracking.visitorId
+  ) {
+    throw new MetadataCollisionError(
+      'Metadata already contains datafast_visitor_id with a different value.'
+    );
+  }
+
+  if (params.mergeStrategy === 'overwrite' && tracking.visitorId) {
+    finalMetadata.datafast_visitor_id = tracking.visitorId;
+  }
+
+  if (params.mergeStrategy === 'overwrite' && dependencies.captureSessionId && tracking.sessionId) {
+    finalMetadata.datafast_session_id = tracking.sessionId;
+  }
 
   const raw = await dependencies.creem.createCheckout({
     productId: params.productId,

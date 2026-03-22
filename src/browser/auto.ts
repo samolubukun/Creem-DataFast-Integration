@@ -21,6 +21,9 @@ export function initCreemDataFast() {
   observer.observe(document.body, { childList: true, subtree: true });
 }
 
-if (typeof window !== 'undefined' && (window as any).CREEM_DATAFAST_AUTO_INIT) {
-  initCreemDataFast();
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const currentScript = document.currentScript;
+  if (currentScript?.hasAttribute('data-auto-init')) {
+    initCreemDataFast();
+  }
 }

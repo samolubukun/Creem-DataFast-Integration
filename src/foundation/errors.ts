@@ -19,6 +19,13 @@ export class MissingTrackingError extends CreemDataFastError {
   }
 }
 
+export class MetadataCollisionError extends CreemDataFastError {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'MetadataCollisionError';
+  }
+}
+
 export class UnsupportedWebhookEventError extends CreemDataFastError {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);

@@ -54,10 +54,37 @@ export interface RetryConfig {
   maxDelayMs?: number;
 }
 
+export interface DeadLetterContext {
+  eventType: string;
+  eventId: string;
+  transactionId: string;
+  payment?: DataFastPaymentPayload;
+  error: Error;
+  attempts: number;
+}
+
+export interface DataFastApiResponse {
+  status: number;
+  body: unknown;
+}
+
+export interface HealthCheckResult {
+  healthy: boolean;
+  checks: {
+    creemApiKey: { ok: boolean; message: string; latencyMs?: number };
+    webhookSecret: { ok: boolean; message: string; latencyMs?: number };
+    datafastApi: { ok: boolean; message: string; latencyMs?: number };
+  };
+  timestamp: string;
+}
+
+export type MetadataMergeStrategy = 'preserve' | 'overwrite' | 'error';
+
 export interface CreemDataFastOptions {
   creemApiKey?: string;
   creemWebhookSecret: string;
   datafastApiKey: string;
+  datafastApiBaseUrl?: string;
   testMode?: boolean;
   creemClient?: CreemSdkClientLike;
   fetch?: typeof globalThis.fetch;
@@ -66,6 +93,9 @@ export interface CreemDataFastOptions {
   retry?: RetryConfig;
   strictTracking?: boolean;
   captureSessionId?: boolean;
+  dryRun?: boolean;
+  eventFilter?: SupportedWebhookEvent[];
+  onDeadLetter?: (context: DeadLetterContext) => void | Promise<void>;
   hydrateTransactionOnSubscriptionPaid?: boolean;
   idempotencyStore?: IdempotencyStore;
   idempotencyInFlightTtlSeconds?: number;
@@ -100,6 +130,7 @@ export interface CreateCheckoutParams {
   customFields?: Record<string, any>;
   metadata?: Record<string, any> | null;
   tracking?: DataFastTracking;
+  mergeStrategy?: MetadataMergeStrategy;
 }
 
 export interface CreateCheckoutContext {
@@ -132,7 +163,7 @@ export interface HandleWebhookResult {
   reason?: 'unsupported_event' | 'duplicate_event' | 'delegated_to_subscription_paid';
   deduplicated?: boolean;
   payload?: DataFastPaymentPayload;
-  datafastResponse?: any;
+  datafastResponse?: DataFastApiResponse | unknown;
 }
 
 export interface CheckoutDependencies {
@@ -151,12 +182,20 @@ export interface WebhookHandlerDependencies {
   idempotencyStore: IdempotencyStore;
   idempotencyInFlightTtlSeconds: number;
   idempotencyProcessedTtlSeconds: number;
+  eventFilter?: SupportedWebhookEvent[];
+  dryRun?: boolean;
+  onDeadLetter?: (context: DeadLetterContext) => void | Promise<void>;
+  retry?: RetryConfig;
   hydrateTransactionOnSubscriptionPaid: boolean;
   logger: LoggerLike;
 }
 
 export interface InternalDataFastClient {
   sendPayment(payload: DataFastPaymentPayload): Promise<any>;
+  sendPayments?(
+    payloads: DataFastPaymentPayload[]
+  ): Promise<{ results: Array<{ ok: boolean; response?: DataFastApiResponse; error?: Error }> }>;
+  getPayments?(visitorId: string): Promise<DataFastApiResponse>;
 }
 
 export interface CheckoutCompletedEvent {
@@ -284,7 +323,20 @@ export interface CreemDataFastClient {
     context?: CreateCheckoutContext
   ): Promise<CreateCheckoutResult>;
   handleWebhook(params: HandleWebhookParams): Promise<HandleWebhookResult>;
+  replayWebhook(params: HandleWebhookParams): Promise<HandleWebhookResult>;
   verifyWebhookSignature(rawBody: string, headers: HeadersLike): Promise<boolean>;
+  buildCheckoutUrl(params: {
+    checkoutUrl: string;
+    visitorId?: string;
+    sessionId?: string;
+    mergeStrategy?: MetadataMergeStrategy;
+  }): string;
+  healthCheck(): Promise<HealthCheckResult>;
+  sendPayments(
+    payloads: DataFastPaymentPayload[]
+  ): Promise<{ results: Array<{ ok: boolean; response?: DataFastApiResponse; error?: Error }> }>;
+  getPayments(visitorId: string): Promise<DataFastApiResponse>;
+  creem: InternalCreemClient;
 }
 
 export interface NextWebhookHandlerOptions {

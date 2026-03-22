@@ -2,12 +2,12 @@ import { DataFastRequestError } from '../foundation/errors.js';
 import { resolveLogger } from '../foundation/logger.js';
 import type {
   CreemDataFastOptions,
+  DataFastApiResponse,
   DataFastPaymentPayload,
   InternalDataFastClient,
   RetryConfig,
 } from '../foundation/types.js';
 
-const DATAFAST_PAYMENTS_URL = 'https://datafa.st/api/v1/payments';
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_RETRIES = 1;
 const DEFAULT_BASE_DELAY_MS = 250;
@@ -122,20 +122,28 @@ async function sleep(delayMs: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
+function normalizeBaseUrl(baseUrl?: string): string {
+  if (!baseUrl) {
+    return 'https://datafa.st';
+  }
+  return baseUrl.replace(/\/$/, '');
+}
+
 export function createDataFastClient(options: CreemDataFastOptions): InternalDataFastClient {
   const fetchImplementation = resolveFetch(options.fetch);
   const logger = resolveLogger(options.logger);
   const timeoutMs = resolveTimeoutMs(options.timeoutMs);
   const retry = resolveRetryConfig(options.retry);
+  const baseUrl = normalizeBaseUrl(options.datafastApiBaseUrl);
+  const paymentsUrl = `${baseUrl}/api/v1/payments`;
 
-  return {
-    async sendPayment(payload: DataFastPaymentPayload) {
+  const sendPayment = async (payload: DataFastPaymentPayload) => {
       for (let attempt = 0; attempt <= retry.retries; attempt += 1) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
         try {
-          const response = await fetchImplementation(DATAFAST_PAYMENTS_URL, {
+          const response = await fetchImplementation(paymentsUrl, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${options.datafastApiKey}`,
@@ -223,6 +231,64 @@ export function createDataFastClient(options: CreemDataFastOptions): InternalDat
       throw new DataFastRequestError('DataFast request failed unexpectedly.', {
         retryable: false,
       });
+    };
+
+  return {
+    async sendPayment(payload: DataFastPaymentPayload) {
+      return sendPayment(payload);
+    },
+    async sendPayments(payloads: DataFastPaymentPayload[]) {
+      const results: Array<{ ok: boolean; response?: DataFastApiResponse; error?: Error }> = [];
+
+      for (const payload of payloads) {
+        try {
+          const body = await sendPayment(payload);
+          results.push({ ok: true, response: { status: 200, body } });
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          results.push({ ok: false, error: err });
+        }
+      }
+
+      return { results };
+    },
+    async getPayments(visitorId: string): Promise<DataFastApiResponse> {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const url = `${baseUrl}/api/v1/payments?visitor_id=${encodeURIComponent(visitorId)}`;
+
+      try {
+        const response = await fetchImplementation(url, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${options.datafastApiKey}`,
+          },
+          signal: controller.signal,
+        });
+
+        const responseText = await response.text();
+        const responseBody = parseResponseBody(responseText);
+
+        if (!response.ok) {
+          throw new DataFastRequestError(
+            `DataFast getPayments failed with status ${response.status}.`,
+            {
+              status: response.status,
+              statusText: response.statusText,
+              requestId: getRequestId(response),
+              retryable: isRetryableStatus(response.status),
+              responseBody: sanitizeResponseBody(responseBody),
+            }
+          );
+        }
+
+        return {
+          status: response.status,
+          body: responseBody,
+        };
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   };
 }
