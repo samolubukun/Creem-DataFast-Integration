@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "prebuild": "npm --prefix ../.. run build",
     "build": "tsc",
     "start": "node dist/index.js"
   },

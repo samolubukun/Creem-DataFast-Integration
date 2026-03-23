@@ -18,6 +18,8 @@ npm install
 npm run dev
 ```
 
+For CI and production-style builds, `npm run build` in this example automatically builds the root package first.
+
 ## Express example
 
 Path: `examples/express`
@@ -32,6 +34,8 @@ cd examples/express
 npm install
 npm run dev
 ```
+
+For CI and production-style builds, `npm run build` in this example automatically builds the root package first.
 
 ## Required environment variables
 
