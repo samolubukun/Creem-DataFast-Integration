@@ -1,0 +1,54 @@
+name: Smoke Examples
+
+on:
+  pull_request:
+    branches: [master, main]
+  push:
+    branches: [master, main]
+
+jobs:
+  smoke-nextjs:
+    name: Next.js example smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Next.js example dependencies
+        run: npm install
+        working-directory: examples/nextjs
+
+      - name: Build Next.js example
+        run: npm run build
+        working-directory: examples/nextjs
+
+  smoke-express:
+    name: Express example smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Express example dependencies
+        run: npm install
+        working-directory: examples/express
+
+      - name: Build Express example
+        run: npm run build
+        working-directory: examples/express

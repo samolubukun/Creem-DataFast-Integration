@@ -6,6 +6,43 @@
 
 Connect [Creem](https://creem.io) payments to [DataFast](https://datafa.st) with production-ready checkout attribution and webhook forwarding.
 
+## Table of Contents
+
+- [Judge in 2 minutes](#judge-in-2-minutes)
+- [Migration Notes](#migration-notes)
+- [Production Checklist](#production-checklist)
+- [Compatibility Matrix](#compatibility-matrix)
+- [Installation](#installation)
+- [Examples](#examples)
+- [Smoke Test (signed webhook fixture)](#smoke-test-signed-webhook-fixture)
+- [Quickstart (2 minutes)](#quickstart-2-minutes)
+- [Core API](#core-api)
+- [Extended API](#extended-api)
+- [Configuration](#configuration)
+- [Idempotency Stores](#idempotency-stores)
+- [Framework Adapters](#framework-adapters)
+- [Browser Helpers](#browser-helpers)
+- [Errors](#errors)
+
+## Judge in 2 minutes
+
+1. Create a checkout with cookie-based tracking capture.
+2. Replay a signed webhook fixture through your local webhook route.
+3. Confirm `200 OK` and inspect logs for mapping + forwarding path.
+
+```bash
+npm install
+npm run build
+```
+
+Run your app and replay a signed fixture:
+
+```bash
+WEBHOOK_URL=http://localhost:3000/api/webhook/creem \
+CREEM_WEBHOOK_SECRET=whsec_xxx \
+npm run smoke:webhook
+```
+
 ## Migration Notes
 
 - Prefer `webhookDryRun` over deprecated `dryRun`.
@@ -24,6 +61,7 @@ Connect [Creem](https://creem.io) payments to [DataFast](https://datafa.st) with
 - Next.js App Router: supported via `creem-datafast-integration/next`
 - Express: supported via `creem-datafast-integration/express`
 - ESM: supported
+- Bun/Workers: core flow is framework-agnostic; validate in your own runtime before production
 
 ## Installation
 
@@ -238,6 +276,8 @@ type CreemDataFastOptions = {
 
 ## Idempotency Stores
 
+See `docs/production-idempotency.md` for production guidance, TTL tuning, and failure modes.
+
 In-memory store (default):
 
 ```ts
@@ -319,6 +359,10 @@ Exported errors include:
 - `DataFastRequestError`
 - `TransactionHydrationError`
 - `WebhookValidationError`
+
+## Security
+
+See `SECURITY.md` for vulnerability reporting and operational hardening guidance.
 
 ## License
 
