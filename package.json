@@ -1,6 +1,6 @@
 {
   "name": "creem-datafast-integration",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "description": "Premium wrapper for Creem SDK to capture DataFast attribution and handle webhooks with idempotency and hydration.",
   "type": "module",
   "main": "./dist/index.js",
@@ -35,6 +35,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "engines": {
@@ -47,7 +48,8 @@
     "format": "biome format --write src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "smoke:webhook": "node scripts/smoke-webhook.mjs"
   },
   "keywords": [
     "creem",

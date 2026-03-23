@@ -1,0 +1,21 @@
+{
+  "id": "evt_fixture_checkout_completed",
+  "eventType": "checkout.completed",
+  "created_at": 1700000000,
+  "object": {
+    "id": "checkout_fixture_1",
+    "order": {
+      "id": "ord_fixture_1",
+      "amount": 2999,
+      "currency": "USD",
+      "metadata": {
+        "datafast_visitor_id": "visitor_fixture_123"
+      }
+    },
+    "customer": {
+      "id": "cus_fixture_1",
+      "email": "fixture@example.com",
+      "name": "Fixture User"
+    }
+  }
+}

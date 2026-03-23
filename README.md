@@ -1,11 +1,51 @@
 # creem-datafast-integration
 
+[![CI](https://github.com/samolubukun/Creem-DataFast-Integration/actions/workflows/ci.yml/badge.svg)](https://github.com/samolubukun/Creem-DataFast-Integration/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/creem-datafast-integration.svg)](https://www.npmjs.com/package/creem-datafast-integration)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Connect [Creem](https://creem.io) payments to [DataFast](https://datafa.st) with production-ready checkout attribution and webhook forwarding.
+
+## Migration Notes
+
+- Prefer `webhookDryRun` over deprecated `dryRun`.
+- Prefer `health.ok` over deprecated `health.healthy`.
+
+## Production Checklist
+
+- Use `express.raw({ type: 'application/json' })` for Express webhook routes.
+- Configure a durable idempotency store for multi-instance deployments.
+- Keep `CREEM_WEBHOOK_SECRET` and `DATAFAST_API_KEY` set in server env only.
+- Run `healthCheck()` on deploy and alert when `health.ok` is false.
+
+## Compatibility Matrix
+
+- Node.js: `>=18`
+- Next.js App Router: supported via `creem-datafast-integration/next`
+- Express: supported via `creem-datafast-integration/express`
+- ESM: supported
 
 ## Installation
 
 ```bash
 npm install creem-datafast-integration
+```
+
+## Examples
+
+- Next.js: `examples/nextjs`
+- Express: `examples/express`
+
+See `examples/README.md` for run steps.
+
+## Smoke Test (signed webhook fixture)
+
+Run against your local webhook endpoint:
+
+```bash
+WEBHOOK_URL=http://localhost:3000/api/webhook/creem \
+CREEM_WEBHOOK_SECRET=whsec_xxx \
+npm run smoke:webhook
 ```
 
 ## Quickstart (2 minutes)

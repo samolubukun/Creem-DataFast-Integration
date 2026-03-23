@@ -51,9 +51,6 @@ export default function Home() {
         padding: '20px',
       }}
     >
-      {/* DataFast tracking script — sets the datafast_visitor_id cookie */}
-      <script async defer src="https://cdn.datafa.st/tracking.js" />
-
       <div style={{ background: '#f5f5f5', padding: '30px', borderRadius: '8px' }}>
         <h1>CREEM + DataFast Integration (Next.js)</h1>
         <p>
