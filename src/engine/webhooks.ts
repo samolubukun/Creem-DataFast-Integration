@@ -190,7 +190,9 @@ export async function handleWebhook(
               return mapSubscriptionPaidToPayment(subscriptionPayload);
             })();
 
-    if (dependencies.dryRun) {
+    const shouldDryRun = dependencies.webhookDryRun ?? dependencies.dryRun;
+
+    if (shouldDryRun) {
       dependencies.logger.info('Dry-run mode: payment not sent to DataFast.', {
         eventId,
         eventType,

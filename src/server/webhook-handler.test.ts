@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { webcrypto } from 'node:crypto';
-import { WebhookHandler, createWebhookHandler, verifyWebhookSignature } from '../../src/server/webhook-handler';
-import { InvalidCreemSignatureError } from '../../src/errors';
+import { WebhookHandler, createWebhookHandler, verifyWebhookSignature } from '../../src/server/webhook-handler.js';
+import { InvalidCreemSignatureError } from '../../src/errors.js';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CreemDataFastClient, createCreemDataFastClient } from '../../src/client/create-checkout';
+import { CreemDataFastClient, createCreemDataFastClient } from '../../src/client/create-checkout.js';
 
 vi.mock('creem', () => ({
   Creem: vi.fn().mockImplementation(() => ({

@@ -7,7 +7,7 @@ describe('Next.js webhook handler', () => {
 
   it('module can be imported without Next.js installed', async () => {
     try {
-      await import('../../src/server/nextjs');
+      await import('../../src/server/nextjs.js');
     } catch (e: any) {
       if (e.message.includes('next/server')) {
         return;

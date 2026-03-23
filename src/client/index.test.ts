@@ -7,7 +7,7 @@ import {
   getVisitorIdFromUrl,
   getVisitorIdWithFallback,
   DataFastClient,
-} from '../../src/client/index';
+} from '../../src/client/index.js';
 
 describe('Browser client helpers', () => {
   let mockDocument: { cookie: string };
@@ -25,7 +25,7 @@ describe('Browser client helpers', () => {
   describe('getDataFastVisitorId (browser)', () => {
     it('returns null when document is undefined (SSR)', async () => {
       vi.stubGlobal('document', undefined);
-      const { getDataFastVisitorId } = await import('../../src/client/index');
+      const { getDataFastVisitorId } = await import('../../src/client/index.js');
       const result = getDataFastVisitorId();
       expect(result).toBeNull();
     });
@@ -68,7 +68,7 @@ describe('Browser client helpers', () => {
 
     it('returns false in SSR', async () => {
       vi.stubGlobal('document', undefined);
-      const { hasDataFastVisitorId } = await import('../../src/client/index');
+      const { hasDataFastVisitorId } = await import('../../src/client/index.js');
       expect(hasDataFastVisitorId()).toBe(false);
     });
   });

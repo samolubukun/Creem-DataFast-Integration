@@ -50,6 +50,7 @@ describe('public API parity methods', () => {
     const client = makeClient();
     const result = await client.healthCheck();
 
+    expect(result).toHaveProperty('ok');
     expect(result).toHaveProperty('healthy');
     expect(result).toHaveProperty('checks');
     expect(result).toHaveProperty('timestamp');

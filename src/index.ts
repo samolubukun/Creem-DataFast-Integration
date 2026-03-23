@@ -14,6 +14,8 @@ export * from './foundation/errors.js';
 export { MemoryIdempotencyStore } from './storage/idempotency.js';
 export { createUpstashIdempotencyStore as UpstashIdempotencyStore } from './storage/upstash.js';
 
+let hasWarnedLegacyDryRun = false;
+
 async function runHealthCheck(options: CreemDataFastOptions): Promise<any> {
   const checks = {
     creemApiKey: {
@@ -42,6 +44,7 @@ async function runHealthCheck(options: CreemDataFastOptions): Promise<any> {
   }
 
   return {
+    ok: checks.creemApiKey.ok && checks.webhookSecret.ok && checks.datafastApi.ok,
     healthy: checks.creemApiKey.ok && checks.webhookSecret.ok && checks.datafastApi.ok,
     checks,
     timestamp: new Date().toISOString(),
@@ -58,6 +61,19 @@ export function createCreemDataFast(options: CreemDataFastOptions): CreemDataFas
   const idempotencyStore = options.idempotencyStore ?? new MemoryIdempotencyStore();
   const idempotencyInFlightTtlSeconds = options.idempotencyInFlightTtlSeconds ?? 300;
   const idempotencyProcessedTtlSeconds = options.idempotencyProcessedTtlSeconds ?? 86400;
+  const webhookDryRun = options.webhookDryRun ?? options.dryRun;
+
+  if (
+    options.dryRun !== undefined &&
+    options.webhookDryRun === undefined &&
+    process.env.NODE_ENV !== 'production' &&
+    !hasWarnedLegacyDryRun
+  ) {
+    hasWarnedLegacyDryRun = true;
+    logger.warn(
+      '[creem-datafast-integration] `dryRun` is deprecated and will be removed in a future major version. Use `webhookDryRun` instead.'
+    );
+  }
 
   return {
     createCheckout(params, context) {
@@ -77,7 +93,8 @@ export function createCreemDataFast(options: CreemDataFastOptions): CreemDataFas
         idempotencyInFlightTtlSeconds,
         idempotencyProcessedTtlSeconds,
         eventFilter: options.eventFilter,
-        dryRun: options.dryRun,
+        dryRun: webhookDryRun,
+        webhookDryRun,
         onDeadLetter: options.onDeadLetter,
         retry: options.retry,
         hydrateTransactionOnSubscriptionPaid,
@@ -95,7 +112,8 @@ export function createCreemDataFast(options: CreemDataFastOptions): CreemDataFas
           idempotencyInFlightTtlSeconds,
           idempotencyProcessedTtlSeconds,
           eventFilter: options.eventFilter,
-          dryRun: options.dryRun,
+          dryRun: webhookDryRun,
+          webhookDryRun,
           onDeadLetter: options.onDeadLetter,
           retry: options.retry,
           hydrateTransactionOnSubscriptionPaid,

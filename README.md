@@ -8,18 +8,49 @@ Connect [Creem](https://creem.io) payments to [DataFast](https://datafa.st) with
 npm install creem-datafast-integration
 ```
 
-## Quick Start
+## Quickstart (2 minutes)
+
+Create one shared client, use it for checkout creation, and wire one webhook route.
 
 ```ts
+// lib/creem-datafast.ts
 import { createCreemDataFast } from 'creem-datafast-integration';
 
-const cd = createCreemDataFast({
-  creemApiKey: process.env.CREEM_API_KEY,
+export const creemDataFast = createCreemDataFast({
+  creemApiKey: process.env.CREEM_API_KEY!,
   creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
   datafastApiKey: process.env.DATAFAST_API_KEY!,
   testMode: process.env.NODE_ENV !== 'production',
 });
 ```
+
+```ts
+// app/api/checkout/route.ts (Next.js)
+import { NextResponse } from 'next/server';
+import { creemDataFast } from '@/lib/creem-datafast';
+
+export async function POST(request: Request) {
+  const { checkoutUrl } = await creemDataFast.createCheckout(
+    {
+      productId: process.env.CREEM_PRODUCT_ID!,
+      successUrl: `${process.env.APP_BASE_URL!}/success`,
+    },
+    { request }
+  );
+
+  return NextResponse.redirect(checkoutUrl, { status: 303 });
+}
+```
+
+```ts
+// app/api/webhook/creem/route.ts (Next.js)
+import { createNextWebhookHandler } from 'creem-datafast-integration/next';
+import { creemDataFast } from '@/lib/creem-datafast';
+
+export const POST = createNextWebhookHandler(creemDataFast);
+```
+
+Supported webhook events: `checkout.completed`, `subscription.paid`, `refund.created`.
 
 ## Core API
 
@@ -87,6 +118,8 @@ const url = cd.buildCheckoutUrl({
 
 Returns a health snapshot for Creem credentials, webhook secret, and DataFast reachability.
 
+`health.ok` is the canonical readiness flag. `health.healthy` is deprecated and kept only for backwards compatibility.
+
 ```ts
 const health = await cd.healthCheck();
 ```
@@ -141,8 +174,9 @@ type CreemDataFastOptions = {
   captureSessionId?: boolean;
   hydrateTransactionOnSubscriptionPaid?: boolean;
 
-  // parity features
-  dryRun?: boolean;
+  // webhook controls
+  webhookDryRun?: boolean; // preferred name
+  dryRun?: boolean; // deprecated legacy alias
   eventFilter?: Array<'checkout.completed' | 'subscription.paid' | 'refund.created'>;
   onDeadLetter?: (context: {
     eventType: string;

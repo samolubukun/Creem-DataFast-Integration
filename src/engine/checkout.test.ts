@@ -10,6 +10,7 @@ function makeDependencies() {
         id: 'checkout_123',
         checkoutUrl: 'https://checkout.creem.io/test',
       }),
+      getTransactionById: vi.fn(),
     },
     logger: {
       debug: vi.fn(),
@@ -61,8 +62,9 @@ describe('checkout merge strategies', () => {
       dependencies
     );
 
-    expect(result.finalMetadata.datafast_visitor_id).toBe('new_visitor');
-    expect(result.finalMetadata.datafast_session_id).toBe('new_session');
+    expect(result.finalMetadata).not.toBeNull();
+    expect(result.finalMetadata?.datafast_visitor_id).toBe('new_visitor');
+    expect(result.finalMetadata?.datafast_session_id).toBe('new_session');
     expect(dependencies.creem.createCheckout).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({

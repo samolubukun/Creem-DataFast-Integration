@@ -69,6 +69,10 @@ export interface DataFastApiResponse {
 }
 
 export interface HealthCheckResult {
+  ok: boolean;
+  /**
+   * @deprecated Use `ok` instead. Kept for backwards compatibility.
+   */
   healthy: boolean;
   checks: {
     creemApiKey: { ok: boolean; message: string; latencyMs?: number };
@@ -93,6 +97,10 @@ export interface CreemDataFastOptions {
   retry?: RetryConfig;
   strictTracking?: boolean;
   captureSessionId?: boolean;
+  webhookDryRun?: boolean;
+  /**
+   * @deprecated Use `webhookDryRun` instead. Kept for backwards compatibility.
+   */
   dryRun?: boolean;
   eventFilter?: SupportedWebhookEvent[];
   onDeadLetter?: (context: DeadLetterContext) => void | Promise<void>;
@@ -183,6 +191,10 @@ export interface WebhookHandlerDependencies {
   idempotencyInFlightTtlSeconds: number;
   idempotencyProcessedTtlSeconds: number;
   eventFilter?: SupportedWebhookEvent[];
+  webhookDryRun?: boolean;
+  /**
+   * @deprecated Use `webhookDryRun` instead. Kept for backwards compatibility.
+   */
   dryRun?: boolean;
   onDeadLetter?: (context: DeadLetterContext) => void | Promise<void>;
   retry?: RetryConfig;
