@@ -1,16 +1,12 @@
 import { createNextWebhookHandler } from 'creem-datafast-integration/next';
-import { createCreemDataFast } from 'creem-datafast-integration';
+import { getCreemDataFast } from '../../../../lib/creem-datafast';
 
-const creemDataFast = createCreemDataFast({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  testMode: process.env.NODE_ENV !== 'production',
-  webhookDryRun: process.env.WEBHOOK_DRY_RUN === 'true',
-});
+export async function POST(request: Request) {
+  const handler = createNextWebhookHandler(getCreemDataFast(), {
+    onError: (error: Error) => {
+      console.error('Webhook error:', error);
+    },
+  });
 
-export const POST = createNextWebhookHandler(creemDataFast, {
-  onError: (error: Error) => {
-    console.error('Webhook error:', error);
-  },
-});
+  return handler(request);
+}

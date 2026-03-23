@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCreemDataFast } from 'creem-datafast-integration';
-
-const creemDataFast = createCreemDataFast({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-});
+import { getCreemDataFast } from '../../../lib/creem-datafast';
 
 export async function POST(request: NextRequest) {
   try {
+    const creemDataFast = getCreemDataFast();
     const contentType = request.headers.get('content-type') ?? '';
     const isJson = contentType.includes('application/json');
     const body = isJson ? await request.json().catch(() => ({})) : {};
