@@ -1,5 +1,3 @@
-import type { Creem } from 'creem';
-
 export interface DataFastTracking {
   visitorId?: string;
   sessionId?: string;
@@ -97,6 +95,8 @@ export interface CreemDataFastOptions {
   retry?: RetryConfig;
   strictTracking?: boolean;
   captureSessionId?: boolean;
+  cookieName?: string;
+  sessionCookieName?: string;
   webhookDryRun?: boolean;
   /**
    * @deprecated Use `webhookDryRun` instead. Kept for backwards compatibility.

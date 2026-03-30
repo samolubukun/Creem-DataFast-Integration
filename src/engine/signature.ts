@@ -62,3 +62,15 @@ export async function verifyCreemSignature(
 
   return timingSafeEqual(hexToBytes(expectedSignature), hexToBytes(signature));
 }
+
+export async function verifyWebhookSignature(
+  rawBody: string,
+  headers: HeadersLike,
+  webhookSecret: string
+): Promise<boolean> {
+  const signature = extractHeader(headers, 'creem-signature');
+  if (!signature) {
+    return false;
+  }
+  return verifyCreemSignature(rawBody, webhookSecret, signature);
+}

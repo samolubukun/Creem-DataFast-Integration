@@ -1,57 +1,48 @@
 {
   "name": "creem-datafast-integration",
-  "version": "2.1.5",
-  "description": "Premium wrapper for Creem SDK to capture DataFast attribution and handle webhooks with idempotency and hydration.",
-  "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "version": "1.0.3",
+  "description": "TypeScript package that connects CREEM payments to DataFast analytics for revenue attribution",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     },
     "./client": {
-      "types": "./dist/client.d.ts",
-      "import": "./dist/client.js"
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.mjs",
+      "require": "./dist/client/index.js"
     },
-    "./browser": {
-      "types": "./dist/browser.d.ts",
-      "import": "./dist/browser.js"
-    },
-    "./next": {
-      "types": "./dist/next.d.ts",
-      "import": "./dist/next.js"
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js"
     },
     "./express": {
-      "types": "./dist/express.d.ts",
-      "import": "./dist/express.js"
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js"
+    },
+    "./nextjs": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.mjs",
+      "require": "./dist/server/index.js"
     },
     "./idempotency/upstash": {
-      "types": "./dist/idempotency/upstash.d.ts",
-      "import": "./dist/idempotency/upstash.js"
+      "types": "./dist/utils/idempotency-upstash.d.ts",
+      "import": "./dist/utils/idempotency-upstash.mjs",
+      "require": "./dist/utils/idempotency-upstash.js"
     }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md",
-    "SECURITY.md",
-    "docs",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=18"
   },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "biome lint src",
-    "format": "biome format --write src",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "smoke:webhook": "node scripts/smoke-webhook.mjs"
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "creem",
@@ -60,39 +51,38 @@
     "analytics",
     "attribution",
     "revenue",
-    "webhooks",
-    "nextjs",
-    "express"
+    "webhooks"
   ],
+  "author": "",
   "license": "MIT",
   "dependencies": {
-    "creem": "^1.4.2",
-    "zod": "^3.23.8"
+    "creem": "^1.0.0"
+  },
+  "optionalDependencies": {
+    "@upstash/redis": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "eslint": "^8.55.0",
+    "next": "^16.1.6",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.4"
   },
   "peerDependencies": {
-    "@upstash/redis": "^1.37.0",
     "express": ">=4.0.0",
     "next": ">=13.0.0"
   },
   "peerDependenciesMeta": {
-    "@upstash/redis": {
-      "optional": true
-    },
     "express": {
       "optional": true
     },
     "next": {
       "optional": true
+    },
+    "@upstash/redis": {
+      "optional": true
     }
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.4.6",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.10.0",
-    "@upstash/redis": "^1.37.0",
-    "@vitest/coverage-v8": "^3.0.0",
-    "tsup": "^8.5.1",
-    "typescript": "^5.3.3",
-    "vitest": "^3.0.0"
   }
 }

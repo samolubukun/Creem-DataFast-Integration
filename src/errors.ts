@@ -42,3 +42,17 @@ export class DataFastRequestError extends CreemDataFastError implements IDataFas
     this.requestId = options.requestId;
   }
 }
+
+export class TrackingCollisionError extends CreemDataFastError {
+  constructor(message = 'Tracking ID conflict detected') {
+    super(message);
+    this.name = 'TrackingCollisionError';
+  }
+}
+
+export class UnsupportedEventError extends CreemDataFastError {
+  constructor(message = 'Unsupported webhook event') {
+    super(message);
+    this.name = 'UnsupportedEventError';
+  }
+}

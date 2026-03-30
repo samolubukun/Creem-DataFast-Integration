@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "creem": {
+      "source": "armitage-labs/creem-skills",
+      "sourceType": "github",
+      "computedHash": "2fb7ee9efe2fbf1aecbedcb4d96d547f06f0b038f1f905dedaeb964c3188bb0a"
+    },
+    "datafast": {
+      "source": "blink-new/claude",
+      "sourceType": "github",
+      "computedHash": "c1ca89c5b9169251bc0dc4e598e8bfff3e25e23db93aefe0635f92f3bc76a712"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "/_not-found": "app/_not-found.js",
+  "/success/page": "app/success/page.js",
+  "/api/checkout/route": "app/api/checkout/route.js",
+  "/page": "app/page.js",
+  "/api/webhooks/creem/route": "app/api/webhooks/creem/route.js"
+}

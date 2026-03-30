@@ -7,12 +7,6 @@ const DEFAULT_COOKIE_NAME = 'datafast_visitor_id';
 const DEFAULT_SESSION_COOKIE_NAME = 'datafast_session_id';
 
 export interface CreemDataFastClientOptions extends CreemConfig {
-  /**
-   * Inject a pre-configured Creem SDK instance instead of having the package
-   * create one from `apiKey`.  Useful for sharing a single SDK instance across
-   * your app or for testing.
-   */
-  creemClient?: Creem;
   cookieName?: string;
   sessionCookieName?: string;
   strictTracking?: boolean;
@@ -28,8 +22,7 @@ export class CreemDataFastClient {
   private logger: Logger;
 
   constructor(options: CreemDataFastClientOptions) {
-    // Accept an injected client or build one from apiKey
-    this.creem = options.creemClient ?? new Creem({
+    this.creem = new Creem({
       apiKey: options.apiKey,
       serverIdx: options.testMode ? 1 : 0,
     });

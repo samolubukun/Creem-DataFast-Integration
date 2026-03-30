@@ -1,32 +1,19 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { webcrypto } from 'node:crypto';
-import { WebhookHandler, createWebhookHandler, verifyWebhookSignature } from '../../src/server/webhook-handler.js';
-import { InvalidCreemSignatureError } from '../../src/errors.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as crypto from 'node:crypto';
+import { WebhookHandler, createWebhookHandler } from '../../src/server/webhook-handler';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
-// Resolve SubtleCrypto the same way the source does, so tests pass on Node 18.
-const subtle: SubtleCrypto =
-  (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle)
-    ? globalThis.crypto.subtle
-    : (webcrypto as unknown as Crypto).subtle;
-
-/** Compute HMAC-SHA256 hex via Web Crypto (mirrors production code). */
-async function computeSignature(secret: string, payload: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await subtle.importKey(
-    'raw',
-    enc.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await subtle.sign('HMAC', key, enc.encode(payload));
-  return Array.from(new Uint8Array(sig))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+vi.mock('node:crypto', async () => {
+  const actual = await vi.importActual('node:crypto');
+  return {
+    ...actual,
+    timingSafeEqual: vi.fn((a: Buffer, b: Buffer) => {
+      return a.toString('hex') === b.toString('hex');
+    }),
+  };
+});
 
 describe('WebhookHandler', () => {
   let handler: WebhookHandler;
@@ -64,7 +51,7 @@ describe('WebhookHandler', () => {
 
     it('accepts valid signature', async () => {
       const payload = JSON.stringify({ id: 'evt_1', eventType: 'checkout.completed', created_at: 1234567890, object: { id: 'ch_1', object: 'checkout', order: { id: 'ord_1', customer: 'c1', product: 'p1', amount: 1000, currency: 'USD', status: 'completed', type: 'one_time', created_at: '2024-01-01', updated_at: '2024-01-01', mode: 'live' }, product: { id: 'p1', name: 'Test', description: 'desc', image_url: null, price: 1000, currency: 'USD', billing_type: 'one_time', status: 'active', tax_mode: 'none', tax_category: 'digital', default_success_url: 'https://example.com', created_at: '2024-01-01', updated_at: '2024-01-01', mode: 'live' }, customer: { id: 'c1', object: 'customer', email: 'test@example.com', name: 'Test', country: 'US', created_at: '2024-01-01', updated_at: '2024-01-01', mode: 'live' }, status: 'completed', mode: 'live' } });
-      const signature = await computeSignature('secret_123', payload);
+      const signature = crypto.createHmac('sha256', 'secret_123').update(payload).digest('hex');
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -293,19 +280,5 @@ describe('WebhookHandler', () => {
       expect(onPaymentSuccess.mock.calls[0][0]).toHaveProperty('creemEvent');
       expect(onPaymentSuccess.mock.calls[0][0]).toHaveProperty('datafastResponse');
     });
-  });
-});
-
-describe('verifyWebhookSignature', () => {
-  it('resolves for a valid signature', async () => {
-    const payload = '{"id":"evt_1"}';
-    const sig = await computeSignature('my_secret', payload);
-    await expect(verifyWebhookSignature(payload, sig, 'my_secret')).resolves.toBeUndefined();
-  });
-
-  it('throws InvalidCreemSignatureError for an invalid signature', async () => {
-    await expect(
-      verifyWebhookSignature('{"id":"evt_1"}', 'badhex', 'my_secret')
-    ).rejects.toBeInstanceOf(InvalidCreemSignatureError);
   });
 });

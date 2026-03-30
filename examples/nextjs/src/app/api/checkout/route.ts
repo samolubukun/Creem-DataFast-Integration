@@ -1,31 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCreemDataFast } from '../../../lib/creem-datafast';
+import { createCreemDataFastClient } from 'creem-datafast-integration';
+
+const creemClient = createCreemDataFastClient({
+  apiKey: process.env.CREEM_API_KEY!,
+});
 
 export async function POST(request: NextRequest) {
   try {
-    const creemDataFast = getCreemDataFast();
-    const contentType = request.headers.get('content-type') ?? '';
-    const isJson = contentType.includes('application/json');
-    const body = isJson ? await request.json().catch(() => ({})) : {};
-    const visitorId =
-      body && typeof body === 'object' && 'visitorId' in body && typeof body.visitorId === 'string'
-        ? body.visitorId
-        : undefined;
+    const body = await request.json();
+    const { visitorId } = body;
 
-    const { checkoutUrl } = await creemDataFast.createCheckout(
+    // The package injects datafast_visitor_id into metadata automatically.
+    const checkout = await creemClient.createCheckoutWithVisitorId(
       {
         productId: process.env.CREEM_PRODUCT_ID!,
         successUrl: `${request.nextUrl.origin}/success`,
-        tracking: visitorId ? { visitorId } : undefined,
       },
-      { request }
+      visitorId ?? null
     );
 
-    if (isJson) {
-      return NextResponse.json({ checkoutUrl });
-    }
-
-    return NextResponse.redirect(checkoutUrl, { status: 303 });
+    return NextResponse.json({
+      checkoutId: checkout.checkoutId,
+      checkoutUrl: checkout.checkoutUrl,
+    });
   } catch (error) {
     console.error('Checkout error:', error);
     return NextResponse.json(

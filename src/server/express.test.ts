@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Request, Response, NextFunction } from 'express';
-import { creemDataFastWebhook } from '../../src/server/express.js';
+import { creemDataFastWebhook } from '../../src/server/express';
 
 vi.mock('../../src/server/webhook-handler', () => ({
   createWebhookHandler: vi.fn().mockReturnValue({
@@ -30,7 +30,7 @@ describe('Express middleware', () => {
   });
 
   it('calls next with error on exception', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockRejectedValue(new Error('Test error')),
     };
@@ -47,7 +47,7 @@ describe('Express middleware', () => {
   });
 
   it('returns 200 on successful webhook processing', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
     };
@@ -65,7 +65,7 @@ describe('Express middleware', () => {
   });
 
   it('returns 400 on failed webhook processing', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: false, message: 'Invalid signature' }),
     };
@@ -83,7 +83,7 @@ describe('Express middleware', () => {
   });
 
   it('handles Buffer body', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
     };

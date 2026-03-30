@@ -1,17 +1,18 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  clean: true,
-  dts: true,
   entry: {
-    index: 'src/index.ts',
-    client: 'src/client.ts',
-    browser: 'src/browser/auto.ts',
-    next: 'src/next.ts',
-    express: 'src/express.ts',
-    'idempotency/upstash': 'src/storage/upstash.ts',
+    'index': 'src/index.ts',
+    'client/index': 'src/client/index.ts',
+    'server/index': 'src/server/index.ts',
+    'utils/idempotency': 'src/utils/idempotency.ts',
+    'utils/idempotency-upstash': 'src/utils/idempotency-upstash.ts',
   },
-  format: ['esm'],
+  format: ['cjs', 'esm'],
+  dts: true,
+  splitting: false,
   sourcemap: true,
-  target: 'node18',
+  clean: true,
+  external: ['creem', 'express', 'next', '@upstash/redis'],
+  treeshake: true,
 });

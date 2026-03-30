@@ -12,6 +12,7 @@ import type {
   CreateCheckoutParams,
   CreateCheckoutResult,
   DataFastTracking,
+  MetadataMergeStrategy,
 } from '../foundation/types.js';
 
 function hasExplicitTracking(tracking?: DataFastTracking): boolean {
@@ -143,4 +144,46 @@ export async function createCheckout(
     finalMetadata,
     raw,
   };
+}
+
+export function buildCheckoutUrlWithTracking(
+  checkoutUrl: string,
+  visitorId?: string,
+  sessionId?: string,
+  mergeStrategy: MetadataMergeStrategy = 'preserve'
+): string {
+  if (!visitorId && !sessionId) {
+    return checkoutUrl;
+  }
+
+  try {
+    const url = new URL(checkoutUrl);
+    const existingVid = url.searchParams.get('datafast_visitor_id');
+    const existingSid = url.searchParams.get('datafast_session_id');
+
+    if (mergeStrategy === 'error') {
+      if (existingVid && visitorId && existingVid !== visitorId) {
+        throw new MetadataCollisionError('URL already contains datafast_visitor_id with a different value.');
+      }
+      if (existingSid && sessionId && existingSid !== sessionId) {
+        throw new MetadataCollisionError('URL already contains datafast_session_id with a different value.');
+      }
+    }
+
+    if (visitorId) {
+      if (mergeStrategy === 'overwrite' || !existingVid) {
+        url.searchParams.set('datafast_visitor_id', visitorId);
+      }
+    }
+
+    if (sessionId) {
+      if (mergeStrategy === 'overwrite' || !existingSid) {
+        url.searchParams.set('datafast_session_id', sessionId);
+      }
+    }
+
+    return url.toString();
+  } catch {
+    return checkoutUrl;
+  }
 }

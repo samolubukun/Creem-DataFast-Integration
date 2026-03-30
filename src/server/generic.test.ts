@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleGenericWebhook } from '../../src/server/generic.js';
+import { handleGenericWebhook } from '../../src/server/generic';
 
 vi.mock('../../src/server/webhook-handler', () => ({
   createWebhookHandler: vi.fn().mockReturnValue({
@@ -13,7 +13,7 @@ describe('Generic webhook handler', () => {
   });
 
   it('calls handler with correct parameters', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
     };
@@ -31,7 +31,7 @@ describe('Generic webhook handler', () => {
   });
 
   it('passes webhookSecret to handler', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: true }),
     };
@@ -53,7 +53,7 @@ describe('Generic webhook handler', () => {
   });
 
   it('handles missing signature', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: true }),
     };
@@ -70,7 +70,7 @@ describe('Generic webhook handler', () => {
   });
 
   it('calls callbacks when provided', async () => {
-    const { createWebhookHandler } = await import('../../src/server/webhook-handler.js');
+    const { createWebhookHandler } = await import('../../src/server/webhook-handler');
     const mockHandler = {
       handleWebhook: vi.fn().mockResolvedValue({ success: true }),
     };

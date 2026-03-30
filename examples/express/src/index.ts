@@ -1,18 +1,17 @@
 import express from 'express';
 import { config } from 'dotenv';
-import { createCreemDataFast } from 'creem-datafast-integration';
-import { createExpressWebhookHandler } from 'creem-datafast-integration/express';
+import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast-integration';
 
 config();
 
 const app = express();
 
-const creemDataFast = createCreemDataFast({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  testMode: process.env.NODE_ENV !== 'production',
-  dryRun: process.env.WEBHOOK_DRY_RUN === 'true',
+const CREEM_API_KEY = process.env.CREEM_API_KEY!;
+const DATAFAST_API_KEY = process.env.DATAFAST_API_KEY!;
+const CREEM_WEBHOOK_SECRET = process.env.CREEM_WEBHOOK_SECRET;
+
+const creemClient = createCreemDataFastClient({
+  apiKey: CREEM_API_KEY,
 });
 
 // ---------- Landing page ----------
@@ -22,7 +21,7 @@ app.get('/', (_req, res) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>CREEM + DataFast Premium Integration</title>
+      <title>CREEM + DataFast Integration Example</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
         .container { background: #f5f5f5; padding: 30px; border-radius: 8px; }
@@ -30,16 +29,55 @@ app.get('/', (_req, res) => {
         button:hover { background: #0052a3; }
         .info { background: #e7f3ff; padding: 15px; border-radius: 4px; margin: 20px 0; }
       </style>
+      <!-- DataFast tracking script -->
       <script async defer src="https://cdn.datafa.st/tracking.js"></script>
     </head>
     <body>
       <div class="container">
-        <h1>CREEM + DataFast Premium</h1>
-        <p>This example demonstrates the Premium Engine Architecture.</p>
-        <form action="/api/create-checkout" method="POST">
-          <button type="submit">Buy Now - $29.99 (Cookie Capture)</button>
-        </form>
+        <h1>CREEM + DataFast Integration</h1>
+        <p>This example demonstrates automatic revenue attribution between CREEM and DataFast.</p>
+        
+        <div class="info">
+          <strong>How it works:</strong>
+          <ul>
+            <li>DataFast tracking script sets the <code>datafast_visitor_id</code> cookie</li>
+            <li>On checkout, the visitor ID is injected into CREEM metadata</li>
+            <li>When CREEM sends a webhook, payment data + visitor ID are forwarded to DataFast</li>
+          </ul>
+        </div>
+        
+        <button onclick="startCheckout()">Buy Now - $29.99</button>
+        <p><small>Product: Premium Plan</small></p>
       </div>
+      
+      <script>
+        function getCookie(name) {
+          const value = '; ' + document.cookie;
+          const parts = value.split('; ' + name + '=');
+          if (parts.length === 2) return parts.pop().split(';').shift();
+          return null;
+        }
+        
+        async function startCheckout() {
+          const visitorId = getCookie('datafast_visitor_id');
+          console.log('DataFast Visitor ID:', visitorId);
+          
+          try {
+            const response = await fetch('/api/create-checkout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ visitorId })
+            });
+            
+            const data = await response.json();
+            if (data.checkoutUrl) {
+              window.location.href = data.checkoutUrl;
+            }
+          } catch (error) {
+            console.error('Checkout error:', error);
+          }
+        }
+      </script>
     </body>
     </html>
   `);
@@ -47,17 +85,24 @@ app.get('/', (_req, res) => {
 
 // ---------- Checkout API ----------
 
-app.post('/api/create-checkout', express.urlencoded({ extended: false }), async (req, res) => {
+app.use('/api', express.json());
+
+app.post('/api/create-checkout', async (req, res) => {
   try {
-    const { checkoutUrl } = await creemDataFast.createCheckout(
+    const { visitorId } = req.body;
+
+    const checkout = await creemClient.createCheckoutWithVisitorId(
       {
         productId: process.env.CREEM_PRODUCT_ID!,
         successUrl: `${req.protocol}://${req.get('host')}/success`,
       },
-      { request: { headers: req.headers, url: req.url } }
+      visitorId ?? null
     );
 
-    res.redirect(303, checkoutUrl);
+    res.json({
+      checkoutId: checkout.checkoutId,
+      checkoutUrl: checkout.checkoutUrl,
+    });
   } catch (error) {
     console.error('Checkout error:', error);
     res.status(500).json({ error: 'Failed to create checkout' });
@@ -65,13 +110,21 @@ app.post('/api/create-checkout', express.urlencoded({ extended: false }), async 
 });
 
 // ---------- Webhook ----------
+// Use express.raw() so we get the raw body for signature verification.
 
 app.post(
-  '/api/webhook/creem',
+  '/webhooks/creem',
   express.raw({ type: 'application/json' }),
-  createExpressWebhookHandler(creemDataFast, {
-    onError: (error: Error) => {
-      console.error('Webhook processing error:', error);
+  creemDataFastWebhook({
+    creemApiKey: CREEM_API_KEY,
+    datafastApiKey: DATAFAST_API_KEY,
+    webhookSecret: CREEM_WEBHOOK_SECRET,
+    onPaymentSuccess: async ({ creemEvent, datafastResponse }) => {
+      console.log('Payment forwarded to DataFast:', datafastResponse);
+      console.log('CREEM event type:', creemEvent.eventType);
+    },
+    onError: async (error) => {
+      console.error('Webhook processing error:', error.message);
     },
   })
 );
@@ -102,5 +155,5 @@ app.get('/success', (_req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Webhook endpoint: http://localhost:${PORT}/api/webhook/creem`);
+  console.log(`Webhook endpoint: http://localhost:${PORT}/webhooks/creem`);
 });

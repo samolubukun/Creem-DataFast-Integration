@@ -1,6 +1,29 @@
 const DEFAULT_COOKIE_NAME = 'datafast_visitor_id';
 const DEFAULT_SESSION_COOKIE_NAME = 'datafast_session_id';
 
+export interface BrowserTrackingResult {
+  visitorId: string | null;
+  sessionId: string | null;
+}
+
+export function getDataFastTracking(): BrowserTrackingResult {
+  if (typeof document === 'undefined') {
+    return { visitorId: null, sessionId: null };
+  }
+
+  const cookies = document.cookie.split(';');
+  let visitorId: string | null = null;
+  let sessionId: string | null = null;
+
+  for (const cookie of cookies) {
+    const [name, ...valueParts] = cookie.trim().split('=');
+    if (name === DEFAULT_COOKIE_NAME) visitorId = valueParts.join('=') || null;
+    if (name === DEFAULT_SESSION_COOKIE_NAME) sessionId = valueParts.join('=') || null;
+  }
+
+  return { visitorId, sessionId };
+}
+
 export function getDataFastVisitorId(cookieName: string = DEFAULT_COOKIE_NAME): string | null {
   if (typeof document === 'undefined') {
     return null;
@@ -17,6 +40,23 @@ export function getDataFastVisitorId(cookieName: string = DEFAULT_COOKIE_NAME): 
   }
   
   return null;
+}
+
+export function attributeCreemPaymentLink(
+  paymentLink: string,
+  tracking?: { visitorId: string | null; sessionId: string | null }
+): string {
+  const { visitorId, sessionId } = tracking ?? getDataFastTracking();
+  if (!visitorId && !sessionId) return paymentLink;
+
+  try {
+    const url = new URL(paymentLink);
+    if (visitorId) url.searchParams.set('datafast_visitor_id', visitorId);
+    if (sessionId) url.searchParams.set('datafast_session_id', sessionId);
+    return url.toString();
+  } catch {
+    return paymentLink;
+  }
 }
 
 export function getDataFastSessionId(cookieName: string = DEFAULT_SESSION_COOKIE_NAME): string | null {
@@ -60,52 +100,6 @@ export function buildCheckoutUrlWithVisitorId(
   return url.toString();
 }
 
-/**
- * Read the DataFast visitor ID from URL query parameters.
- * Useful as a fallback when cookies are not available (e.g. cross-origin
- * checkout redirects, server-side rendering, or email deep-links).
- *
- * @param urlOrSearch  A full URL string, a URLSearchParams instance, or a
- *                     raw query string like `"?datafast_visitor_id=abc"`.
- *                     Defaults to `window.location.search` when omitted.
- * @param paramName    Query parameter name (default: `"datafast_visitor_id"`)
- */
-export function getVisitorIdFromUrl(
-  urlOrSearch?: string | URLSearchParams,
-  paramName: string = DEFAULT_COOKIE_NAME
-): string | null {
-  let params: URLSearchParams;
-
-  if (urlOrSearch === undefined) {
-    if (typeof window === 'undefined') return null;
-    params = new URLSearchParams(window.location.search);
-  } else if (typeof urlOrSearch === 'string') {
-    try {
-      // Full URL
-      params = new URL(urlOrSearch).searchParams;
-    } catch {
-      // Bare query string
-      params = new URLSearchParams(urlOrSearch);
-    }
-  } else {
-    params = urlOrSearch;
-  }
-
-  return params.get(paramName);
-}
-
-/**
- * Returns the visitor ID from cookies first, then falls back to URL query
- * parameters.  This covers the common case where a user arrives from a link
- * that carries the ID in the URL before the DataFast cookie has been set.
- */
-export function getVisitorIdWithFallback(
-  cookieName: string = DEFAULT_COOKIE_NAME,
-  urlOrSearch?: string | URLSearchParams
-): string | null {
-  return getDataFastVisitorId(cookieName) ?? getVisitorIdFromUrl(urlOrSearch, cookieName);
-}
-
 export function addTrackingToMetadata(
   metadata: Record<string, unknown> = {},
   visitorId?: string | null,
@@ -127,17 +121,12 @@ export function addTrackingToMetadata(
   };
 }
 
-export const addVisitorIdToMetadata = addTrackingToMetadata;
-
 export const DataFastClient = {
   getVisitorId: getDataFastVisitorId,
   getSessionId: getDataFastSessionId,
   hasVisitorId: hasDataFastVisitorId,
   buildCheckoutUrl: buildCheckoutUrlWithVisitorId,
   addTrackingToMetadata,
-  addToMetadata: addVisitorIdToMetadata,
-  getVisitorIdFromUrl,
-  getVisitorIdWithFallback,
 };
 
 export default DataFastClient;
