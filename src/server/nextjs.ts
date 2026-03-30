@@ -6,12 +6,11 @@ export interface NextJsWebhookOptions extends WebhookHandlerOptions {}
 
 export async function creemDataFastWebhookHandler(
   req: NextRequest,
-  options: NextJsWebhookOptions
+  _options?: NextJsWebhookOptions
 ): Promise<NextResponse> {
   try {
-    const signature = req.headers.get('creem-signature') || undefined;
-    const rawBody = await req.text();
-
+    const signature = req.headers.get('creem-signature') ?? req.headers.get('creem-signature'.toLowerCase());
+    
     if (!signature) {
       return NextResponse.json(
         { status: 'error', message: 'Missing creem-signature header' },
@@ -19,7 +18,7 @@ export async function creemDataFastWebhookHandler(
       );
     }
 
-    console.log(`Webhook received, signature: ${signature ? 'present' : 'missing'}`);
+    console.log(`Webhook received, signature: present`);
 
     return NextResponse.json({ 
       status: 'ok', 
