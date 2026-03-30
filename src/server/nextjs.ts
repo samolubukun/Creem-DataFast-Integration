@@ -6,10 +6,10 @@ export interface NextJsWebhookOptions extends WebhookHandlerOptions {}
 
 export async function creemDataFastWebhookHandler(
   req: NextRequest,
-  _options?: WebhookHandlerOptions
+  options: NextJsWebhookOptions
 ): Promise<NextResponse> {
   try {
-    const signature = req.headers.get('creem-signature') || req.headers.get('creem-signature'.toLowerCase()) || undefined;
+    const signature = req.headers.get('creem-signature') || undefined;
     const rawBody = await req.text();
 
     if (!signature) {
@@ -19,13 +19,13 @@ export async function creemDataFastWebhookHandler(
       );
     }
 
-    const body = JSON.parse(rawBody);
-    const eventType = body.eventType || body.event_type;
-    const eventId = body.id;
+    console.log(`Webhook received, signature: ${signature ? 'present' : 'missing'}`);
 
-    console.log(`Received webhook: ${eventType} (${eventId})`);
-
-    return NextResponse.json({ status: 'ok', eventType, eventId });
+    return NextResponse.json({ 
+      status: 'ok', 
+      message: 'Webhook processed',
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Webhook error:', message);
@@ -36,7 +36,7 @@ export async function creemDataFastWebhookHandler(
   }
 }
 
-export function createNextJsWebhookHandler(options: WebhookHandlerOptions) {
+export function createNextJsWebhookHandler(options: NextJsWebhookOptions) {
   return (req: NextRequest) => creemDataFastWebhookHandler(req, options);
 }
 
