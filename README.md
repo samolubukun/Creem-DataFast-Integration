@@ -1,8 +1,8 @@
 # creem-datafast-integration
 
-TypeScript package that automatically connects [CREEM](https://creem.io) payments to [DataFast](https://datafa.st) analytics for revenue attribution. Merchants can attribute revenue to traffic sources without writing any glue code.
+TypeScript package that automatically connects [CREEM](https://creem.io) payments to [DataFast](https://datafa.st) analytics for revenue attribution. Merchant can attribute revenue to traffic sources without writing any glue code.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/) ![npm](https://img.shields.io/npm/v/creem-datafast-integration)
 
 ## Features
 
@@ -16,6 +16,10 @@ TypeScript package that automatically connects [CREEM](https://creem.io) payment
 - **Distributed idempotency** — Upstash Redis adapter for serverless/multi-instance deployments
 - **Configurable** — timeout, retry logic, custom logger
 - **TypeScript first** — full type definitions included
+- **React components** — Provider, hooks, CheckoutButton, PaymentLinkButton, TrackingInspector
+- **Browser helpers** — getDataFastTracking, appendDataFastTracking, attributeCreemPaymentLink
+- **Health checks** — verify API configuration with healthCheck() method
+- **Webhook replay** — reprocess webhooks without idempotency checks
 
 ## Installation
 
@@ -38,172 +42,147 @@ import { createCreemDataFastClient } from 'creem-datafast-integration';
 
 const creemClient = createCreemDataFastClient({
   creemApiKey: process.env.CREEM_API_KEY!,
+  creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
   datafastApiKey: process.env.DATAFAST_API_KEY!,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
   testMode: true
 });
 
 export async function POST(request: NextRequest) {
   const { checkoutUrl } = await creemClient.createCheckout(
-    { productId: process.env.CREEM_PRODUCT_ID! },
+    { productId: 'prod_xxx', successUrl: 'https://yoursite.com/success' },
     { request }
   );
-
   return NextResponse.redirect(checkoutUrl, { status: 303 });
 }
 ```
 
 ```typescript
-import { creemDataFastWebhookHandler } from 'creem-datafast-integration';
+import { NextRequest } from 'next/server';
+import { createNextJsWebhookHandler, createCreemDataFastClient } from 'creem-datafast-integration';
 
-export async function POST(request: NextRequest) {
-  return creemDataFastWebhookHandler(request, {
-    creemApiKey: process.env.CREEM_API_KEY!,
-    datafastApiKey: process.env.DATAFAST_API_KEY!,
-    webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-  });
-}
+const client = createCreemDataFastClient({
+  creemApiKey: process.env.CREEM_API_KEY!,
+  creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
+  datafastApiKey: process.env.DATAFAST_API_KEY!,
+  testMode: true
+});
+
+export const POST = createNextJsWebhookHandler(client);
 ```
 
 ### Express
 
 ```typescript
 import express from 'express';
-import { createCreemDataFastClient, creemDataFastWebhook } from 'creem-datafast-integration';
+import { createCreemDataFastClient, createExpressWebhookHandler } from 'creem-datafast-integration';
 
 const app = express();
-const creemClient = createCreemDataFastClient({
+const client = createCreemDataFastClient({
   creemApiKey: process.env.CREEM_API_KEY!,
+  creemWebhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
   datafastApiKey: process.env.DATAFAST_API_KEY!,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
+  testMode: true
 });
 
 app.post('/api/checkout', async (req, res) => {
-  const { checkoutUrl } = await creemClient.createCheckout(
-    { productId: process.env.CREEM_PRODUCT_ID! },
+  const { checkoutUrl } = await client.createCheckout(
+    { productId: 'prod_xxx', successUrl: 'https://yoursite.com/success' },
     { request: { headers: req.headers, url: req.url } }
   );
-
   res.redirect(303, checkoutUrl);
 });
 
-app.post(
-  '/api/webhook/creem',
-  express.raw({ type: 'application/json' }),
-  creemDataFastWebhook({
-    creemApiKey: process.env.CREEM_API_KEY!,
-    datafastApiKey: process.env.DATAFAST_API_KEY!,
-    webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
-  })
-);
+app.post('/webhook/creem', express.raw({ type: 'application/json' }), createExpressWebhookHandler(client));
 ```
 
-### Client-Side
+### Browser / Client-Side
 
 ```typescript
-import { getDataFastVisitorIdBrowser, buildCheckoutUrlWithVisitorId } from 'creem-datafast-integration/client';
+import { getDataFastTracking, attributeCreemPaymentLink } from 'creem-datafast-integration/client';
 
-const visitorId = getDataFastVisitorIdBrowser();
-const url = buildCheckoutUrlWithVisitorId('https://checkout.creem.io/xxx', visitorId);
+const tracking = getDataFastTracking();
+// { visitorId: "xxx", sessionId: "yyy" }
+
+// Attribute a hosted Creem payment link
+const attributedLink = attributeCreemPaymentLink('https://creem.io/payment/prod_xxx', tracking);
 ```
 
-## Advanced
+### React Components
 
-### Strict Tracking Mode
+```tsx
+import { CreemDataFastProvider, CreemCheckoutButton, TrackingInspector } from 'creem-datafast-integration/react';
 
-Throw an error when no visitor ID is found at checkout:
-
-```typescript
-const creemClient = createCreemDataFastClient({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  strictTracking: true, // throws MissingTrackingError if no visitor ID
-});
-```
-
-### Idempotency (Production)
-
-For multi-instance deployments, use Upstash Redis:
-
-```bash
-npm install @upstash/redis creem-datafast-integration
-```
-
-```typescript
-import { Redis } from '@upstash/redis';
-import { createCreemDataFastClient, createUpstashIdempotencyStore } from 'creem-datafast-integration';
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!
-});
-
-const creemClient = createCreemDataFastClient({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  idempotencyStore: createUpstashIdempotencyStore(redis)
-});
-```
-
-### Configuration Options
-
-```typescript
-{
-  creemApiKey: string;           // CREEM API key
-  creemWebhookSecret?: string;   // For signature verification
-  datafastApiKey: string;        // DataFast API key
-  testMode?: boolean;            // Use test API (default: false)
-  timeoutMs?: number;            // DataFast request timeout (default: 8000)
-  retry?: {
-    retries?: number;           // Extra attempts (default: 1)
-    baseDelayMs?: number;       // Base backoff (default: 250)
-    maxDelayMs?: number;        // Max backoff (default: 2000)
-  };
-  strictTracking?: boolean;       // Throw if no visitor ID (default: false)
-  idempotencyStore?: IdempotencyStore;
-  logger?: Logger;              // Custom logger
+export function App() {
+  return (
+    <CreemDataFastProvider websiteId="your-website-id">
+      <TrackingInspector />
+      <CreemCheckoutButton action="/api/checkout">Buy Now</CreemCheckoutButton>
+    </CreemDataFastProvider>
+  );
 }
 ```
 
-### Error Handling
+## API Reference
+
+### Client Methods
+
+| Method | Description |
+|--------|-------------|
+| `createCheckout(params, context)` | Create checkout with DataFast tracking injected |
+| `handleWebhook({ rawBody, headers })` | Verify and forward webhook to DataFast |
+| `replayWebhook({ rawBody, headers })` | Reprocess webhook without idempotency |
+| `verifyWebhookSignature(rawBody, headers)` | Verify creem-signature header |
+| `forwardPayment(payment)` | Manually forward payment to DataFast |
+| `healthCheck()` | Verify API configuration |
+
+### Tracking Resolution Order
+
+`createCheckout()` resolves tracking in this order:
+
+1. Explicit `tracking` parameter
+2. Metadata `datafast_*` fields  
+3. URL query params `datafast_*`
+4. Cookies `datafast_visitor_id` / `datafast_session_id`
+
+### Error Types
+
+| Error | Description |
+|-------|-------------|
+| `CreemDataFastError` | Base error class |
+| `InvalidCreemSignatureError` | Signature verification failed |
+| `MissingTrackingError` | No visitor ID in strict mode |
+| `DataFastRequestError` | DataFast API failed (has `retryable` property) |
+| `TrackingCollisionError` | Tracking ID conflict detected |
+| `UnsupportedEventError` | Unsupported webhook event |
+
+## Configuration
 
 ```typescript
-import {
-  CreemDataFastError,
-  InvalidCreemSignatureError,
-  MissingTrackingError,
-  DataFastRequestError
-} from 'creem-datafast-integration';
-
-try {
-  // ...
-} catch (error) {
-  if (error instanceof InvalidCreemSignatureError) {
-    // Invalid webhook signature
-  } else if (error instanceof MissingTrackingError) {
-    // No visitor ID in strict mode
-  } else if (error instanceof DataFastRequestError) {
-    // DataFast API failed
-    if (error.retryable) {
-      // Can retry
-    }
-  }
+{
+  creemApiKey: string;              // CREEM API key
+  creemWebhookSecret: string;       // For signature verification
+  datafastApiKey: string;           // DataFast API key
+  datafastApiBaseUrl?: string;      // Custom DataFast endpoint
+  testMode?: boolean;               // Use test API (default: false)
+  timeoutMs?: number;               // Request timeout (default: 8000)
+  retry?: {                         // Retry config
+    retries?: number;              
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+  };
+  strictTracking?: boolean;         // Throw if no visitor ID
+  captureSessionId?: boolean;       // Include session ID in tracking
+  webhookDryRun?: boolean;          // Don't actually forward to DataFast
 }
 ```
 
 ## Supported Events
 
 | Event | Description |
-|---|---|
+|-------|-------------|
 | `checkout.completed` | One-time payment completed |
 | `subscription.paid` | Recurring subscription payment |
 | `refund.created` | Refund issued (forwards as `refunded: true`) |
-
-## Currency Handling
-
-- **Standard currencies** (USD, EUR, GBP): amounts in cents → decimal (2999 → 29.99)
-- **Zero-decimal currencies** (JPY, KRW, VND): amounts stay as-is
-- **Three-decimal currencies** (KWD, BHD, OMR): amounts divided by 1000
 
 ## License
 
