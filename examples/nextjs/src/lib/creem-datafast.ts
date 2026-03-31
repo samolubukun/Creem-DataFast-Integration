@@ -1,6 +1,6 @@
-import { createCreemDataFast } from 'creem-datafast-integration';
+import { createCreemDataFastClient } from 'creem-datafast-integration';
 
-let client: ReturnType<typeof createCreemDataFast> | null = null;
+let client: ReturnType<typeof createCreemDataFastClient> | null = null;
 
 export function getCreemDataFast() {
   if (client) return client;
@@ -15,7 +15,7 @@ export function getCreemDataFast() {
     );
   }
 
-  client = createCreemDataFast({
+  client = createCreemDataFastClient({
     creemApiKey,
     creemWebhookSecret,
     datafastApiKey,
