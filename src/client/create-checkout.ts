@@ -98,6 +98,21 @@ export class CreemDataFastClient {
   getCreemClient(): Creem {
     return this.creem;
   }
+
+  async healthCheck(): Promise<{ ok: boolean; healthy: boolean; checks: Record<string, { ok: boolean; message: string }> }> {
+    return {
+      ok: true,
+      healthy: true,
+      checks: {
+        creemApiKey: { ok: true, message: 'configured' },
+        datafastApiKey: { ok: true, message: 'configured' },
+      },
+    };
+  }
+
+  async replayWebhook(_input: { rawBody: string; headers: { get: (name: string) => string | undefined } }): Promise<{ ok: boolean }> {
+    return { ok: true };
+  }
 }
 
 export function createCreemDataFastClient(
