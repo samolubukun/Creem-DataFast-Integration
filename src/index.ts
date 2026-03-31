@@ -1,4 +1,4 @@
-export { CreemDataFastClient, createCreemDataFastClient } from './client/create-checkout.js';
+export { CreemDataFastClient, createCreemDataFastClient, createCreemDataFastClient as createCreemDataFast } from './client/create-checkout.js';
 
 export {
   getDataFastVisitorId as getDataFastVisitorIdBrowser,

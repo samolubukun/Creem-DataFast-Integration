@@ -81,12 +81,15 @@ export function addTrackingToMetadata(
   };
 }
 
+export const addVisitorIdToMetadata = addTrackingToMetadata;
+
 export const DataFastClient = {
   getVisitorId: getDataFastVisitorId,
   getSessionId: getDataFastSessionId,
   hasVisitorId: hasDataFastVisitorId,
   buildCheckoutUrl: buildCheckoutUrlWithVisitorId,
   addTrackingToMetadata,
+  addToMetadata: addTrackingToMetadata,
 };
 
 export default DataFastClient;
