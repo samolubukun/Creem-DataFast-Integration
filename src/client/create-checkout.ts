@@ -99,7 +99,7 @@ export class CreemDataFastClient {
     return this.creem;
   }
 
-  async healthCheck(): Promise<{ ok: boolean; healthy: boolean; checks: Record<string, { ok: boolean; message: string }> }> {
+  async healthCheck(): Promise<{ ok: boolean; healthy: boolean; checks: Record<string, { ok: boolean; message: string }>; timestamp: string }> {
     return {
       ok: true,
       healthy: true,
@@ -107,7 +107,15 @@ export class CreemDataFastClient {
         creemApiKey: { ok: true, message: 'configured' },
         datafastApiKey: { ok: true, message: 'configured' },
       },
+      timestamp: new Date().toISOString(),
     };
+  }
+
+  buildCheckoutUrl(params: { checkoutUrl: string; visitorId?: string; sessionId?: string }): string {
+    const url = new URL(params.checkoutUrl);
+    if (params.visitorId) url.searchParams.set('datafast_visitor_id', params.visitorId);
+    if (params.sessionId) url.searchParams.set('datafast_session_id', params.sessionId);
+    return url.toString();
   }
 
   async replayWebhook(_input: { rawBody: string; headers: { get: (name: string) => string | undefined } }): Promise<{ ok: boolean }> {
