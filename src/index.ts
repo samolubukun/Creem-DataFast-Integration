@@ -1,4 +1,5 @@
 export { CreemDataFastClient, createCreemDataFastClient } from './client/create-checkout.js';
+export { createCreemDataFast, type FullCreemDataFastClient } from './integration/client.js';
 
 export * from './types/index.js';
 
