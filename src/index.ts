@@ -1,13 +1,8 @@
 export { CreemDataFastClient, createCreemDataFastClient } from './client/create-checkout.js';
-export { createCreemDataFast, type FullCreemDataFastClient } from './integration/client.js';
-
-export * from './types/index.js';
 
 export {
   getDataFastVisitorId as getDataFastVisitorIdBrowser,
   getDataFastSessionId,
-  getDataFastTracking,
-  attributeCreemPaymentLink,
   hasDataFastVisitorId,
   buildCheckoutUrlWithVisitorId,
   addTrackingToMetadata,
@@ -23,6 +18,8 @@ export {
   handleGenericWebhook,
 } from './server/index.js';
 
+export * from './types/index.js';
+
 export {
   mapCreemEventToDataFast,
   mapToDataFastPaymentRequest,
@@ -32,10 +29,6 @@ export {
   getDataFastVisitorId,
   parseCookieHeader,
 } from './utils/cookie.js';
-
-export { buildCheckoutUrlWithTracking } from './engine/checkout.js';
-
-export { verifyWebhookSignature, verifyCreemSignature } from './engine/signature.js';
 
 export {
   MemoryIdempotencyStore,
@@ -49,6 +42,4 @@ export {
   InvalidCreemSignatureError,
   MissingTrackingError,
   DataFastRequestError,
-  TrackingCollisionError,
-  UnsupportedEventError,
 } from './errors.js';

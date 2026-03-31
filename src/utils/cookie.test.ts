@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getDataFastVisitorId,
   parseCookieHeader,
-} from '../../src/utils/cookie.js';
+} from '../../src/utils/cookie';
 
 describe('getDataFastVisitorId', () => {
   describe('with string cookie input', () => {

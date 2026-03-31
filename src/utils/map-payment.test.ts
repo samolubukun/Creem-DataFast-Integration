@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   mapCreemEventToDataFast,
   mapToDataFastPaymentRequest,
-} from '../../src/utils/map-payment.js';
-import type { CreemWebhookRaw, CreemCheckoutCompletedEvent, CreemSubscriptionPaidEvent } from '../../src/types/creem.js';
+} from '../../src/utils/map-payment';
+import type { CreemWebhookRaw, CreemCheckoutCompletedEvent, CreemSubscriptionPaidEvent } from '../../src/types/creem';
 
 describe('mapCreemEventToDataFast', () => {
   describe('checkout.completed', () => {

@@ -1,29 +1,6 @@
 const DEFAULT_COOKIE_NAME = 'datafast_visitor_id';
 const DEFAULT_SESSION_COOKIE_NAME = 'datafast_session_id';
 
-export interface BrowserTrackingResult {
-  visitorId: string | null;
-  sessionId: string | null;
-}
-
-export function getDataFastTracking(): BrowserTrackingResult {
-  if (typeof document === 'undefined') {
-    return { visitorId: null, sessionId: null };
-  }
-
-  const cookies = document.cookie.split(';');
-  let visitorId: string | null = null;
-  let sessionId: string | null = null;
-
-  for (const cookie of cookies) {
-    const [name, ...valueParts] = cookie.trim().split('=');
-    if (name === DEFAULT_COOKIE_NAME) visitorId = valueParts.join('=') || null;
-    if (name === DEFAULT_SESSION_COOKIE_NAME) sessionId = valueParts.join('=') || null;
-  }
-
-  return { visitorId, sessionId };
-}
-
 export function getDataFastVisitorId(cookieName: string = DEFAULT_COOKIE_NAME): string | null {
   if (typeof document === 'undefined') {
     return null;
@@ -40,23 +17,6 @@ export function getDataFastVisitorId(cookieName: string = DEFAULT_COOKIE_NAME): 
   }
   
   return null;
-}
-
-export function attributeCreemPaymentLink(
-  paymentLink: string,
-  tracking?: { visitorId: string | null; sessionId: string | null }
-): string {
-  const { visitorId, sessionId } = tracking ?? getDataFastTracking();
-  if (!visitorId && !sessionId) return paymentLink;
-
-  try {
-    const url = new URL(paymentLink);
-    if (visitorId) url.searchParams.set('datafast_visitor_id', visitorId);
-    if (sessionId) url.searchParams.set('datafast_session_id', sessionId);
-    return url.toString();
-  } catch {
-    return paymentLink;
-  }
 }
 
 export function getDataFastSessionId(cookieName: string = DEFAULT_SESSION_COOKIE_NAME): string | null {
